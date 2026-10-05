@@ -1,0 +1,1923 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}</style>
+<meta name="description" content="出来事カードをえらんで、1分で自分だけの地球をつくるゲーム。できた星には称号がつき、人口・気温・雨・国・くらしの地図も見られます。あなたの星は、何の星？">
+<meta name="theme-color" content="#060a17">
+<title>もしもの地球</title>
+<meta property="og:type" content="website">
+<meta property="og:title" content="もしもの地球">
+<meta property="og:description" content="カードをえらんで、1分で自分だけの地球をつくるゲーム。できた星の称号は？ 人口や国の地図も見られる。">
+<meta property="og:url" content="https://nkworks-games.com/moshimo-chikyu/">
+<meta property="og:image" content="https://nkworks-games.com/moshimo-chikyu/card.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@800&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+/* レイアウト：上に星（地図／地球儀）の舞台、下にカード。横長の画面では左に舞台、右にカード。夜空の中に星が浮かぶ1画面のアプリ */
+:root {
+  color-scheme: dark;
+  --space: #060a17;        /* 夜空 */
+  --panel: #101938;        /* カードやパネルの地 */
+  --panel-hi: #1a2650;     /* 選んだカードの地 */
+  --ink: #f2f5ff;          /* 文字 */
+  --dim: #a9b4d6;          /* 弱い文字 */
+  --line: #2b396b;         /* 枠線 */
+  --gold: #ffd071;         /* 主役の色（太陽の光） */
+  --gold-ink: #2b1d00;     /* 金色の上の文字 */
+  --sea: #6cc4f5;          /* 補助の色（海） */
+  --display: "Shippori Mincho B1", "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif;
+  --body: "Zen Kaku Gothic New", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", "Noto Sans JP", sans-serif;
+}
+html { height: 100%; box-sizing: border-box; }
+body { word-break: auto-phrase; height: 100%; margin: 0; background: var(--space); color: var(--ink); font-family: var(--body); font-weight: 500; font-size: 14px; line-height: 1.5; overflow: hidden; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+[hidden] { display: none !important; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+#app { position: relative; height: 100%; box-sizing: border-box; max-width: 1180px; margin-inline: auto; padding-inline: 16px; padding-block: 6px 12px; display: flex; flex-direction: column; gap: 6px; }
+#view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; pointer-events: none; }
+.top, .layout { position: relative; z-index: 1; }
+.sky { position: fixed; inset: 0; z-index: -1; pointer-events: none; background:
+  radial-gradient(1px 1px at 12% 18%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 31% 64%, #cfe0ff 50%, transparent 51%), radial-gradient(1.5px 1.5px at 47% 9%, #fff 50%, transparent 51%),
+  radial-gradient(1px 1px at 58% 41%, #ffe9c2 50%, transparent 51%), radial-gradient(1px 1px at 73% 77%, #fff 50%, transparent 51%), radial-gradient(1.5px 1.5px at 86% 23%, #cfe0ff 50%, transparent 51%),
+  radial-gradient(1px 1px at 93% 58%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 6% 83%, #ffe9c2 50%, transparent 51%), radial-gradient(1px 1px at 22% 40%, #fff 50%, transparent 51%),
+  radial-gradient(1px 1px at 66% 92%, #cfe0ff 50%, transparent 51%), radial-gradient(1px 1px at 39% 30%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 80% 50%, #fff 50%, transparent 51%),
+  radial-gradient(120% 70% at 50% 110%, #16224f 0%, transparent 60%), var(--space); opacity: .9; }
+
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 36px; }
+.brand { font-family: var(--display); font-weight: 800; font-size: 15px; letter-spacing: .06em; color: var(--dim); transition: opacity .3s; }
+[data-screen="title"] .brand { opacity: 0; }
+.icon-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); display: grid; place-items: center; padding: 0; }
+.icon-btn svg { width: 18px; height: 18px; }
+
+.layout { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+/* カードを選ぶ間は、舞台を地図ぴったりの高さにして、残りをカードに使う */
+[data-screen="play"] .stage, [data-screen="finish"] .stage { flex: 0 1 auto; height: calc((min(100vw, 1180px) - 32px) / 2 + 74px); }
+.stage { position: relative; flex: 1 1 auto; min-height: 150px; touch-action: none; -webkit-user-select: none; user-select: none; }
+.stage-top, .stage-bottom { position: absolute; left: 0; right: 0; display: flex; justify-content: center; pointer-events: none; }
+.stage-top { top: 0; align-items: center; gap: 12px; min-height: 28px; } .stage-bottom { bottom: 0; }
+/* 「これで完成」：5回より少なくても、ここで完成にできる（見た目は小さいが、押せる範囲は上と左右に少し広い。下は地図なので広げない） */
+.done-btn { pointer-events: auto; position: relative; height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); font-size: 12.5px; font-weight: 700; white-space: nowrap; transition: opacity .2s; }
+.done-btn::before { content: ""; position: absolute; inset: -7px -8px -1px; }
+.done-btn:active { transform: translateY(1px) scale(.97); }
+.done-btn:disabled { opacity: .4; cursor: default; }
+.turns { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--dim); font-variant-numeric: tabular-nums; }
+.turns b { color: var(--ink); font-weight: 900; }
+.pips { display: flex; gap: 5px; }
+.pips i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--dim); box-sizing: border-box; }
+.pips i.done { background: var(--gold); border-color: var(--gold); }
+.pips i.now { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255, 208, 113, .22); }
+.hint { margin: 0; padding: 5px 14px; border-radius: 999px; font-size: 13px; font-weight: 700; text-align: center; background: rgba(6, 10, 23, .72); color: var(--ink); max-width: 100%; box-sizing: border-box; text-wrap: balance; }
+.hint.pop { animation: hintPop .35s ease-out; }
+@keyframes hintPop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.panel { flex: 0 0 auto; min-width: 0; }
+.panel-h { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: var(--dim); letter-spacing: .04em; }
+
+/* ---- タイトル ---- */
+.p-title { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; padding-block: 4px 10px; }
+.title { margin: 0; font-family: var(--display); font-weight: 800; line-height: 1.12; letter-spacing: .04em; display: flex; flex-direction: column; align-items: center; }
+.title .t1 { font-size: clamp(20px, 6vw, 30px); color: var(--gold); }
+.title .t2 { font-size: clamp(34px, 11vw, 60px); text-wrap: balance; }
+.lead { margin: 0; color: var(--dim); font-size: 14px; max-width: 30em; }
+.lead span { display: block; } .lead i { font-style: normal; display: inline-block; } .award-desc span { display: inline-block; }   /* 文の切れ目で改行する */
+
+/* ---- ボタン ---- */
+.btn { min-height: 46px; padding: 8px 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); font-weight: 700; font-size: 15px; transition: transform .08s, background .15s, opacity .2s; }
+.btn:active { transform: translateY(1px) scale(.985); }
+.btn.primary { background: var(--gold); border-color: var(--gold); color: var(--gold-ink); font-weight: 900; }
+.btn.big { min-height: 56px; min-width: 220px; font-size: 20px; border-radius: 16px; letter-spacing: .08em; }
+.btn:disabled { opacity: .45; cursor: default; }
+
+/* ---- カード ---- */
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.card { position: relative; display: flex; flex-direction: column; align-items: center; gap: clamp(4px, 1dvh, 9px); min-width: 0; min-height: clamp(148px, 30dvh, 236px); padding: clamp(10px, 2dvh, 18px) 7px clamp(9px, 1.6dvh, 14px); border-radius: 14px; border: 1.5px solid var(--line); background: var(--panel); text-align: center; transition: transform .12s, border-color .12s, background .12s, opacity .2s; animation: cardIn .34s cubic-bezier(.2, .9, .3, 1.2) backwards; }
+.card:nth-child(2) { animation-delay: .06s; } .card:nth-child(3) { animation-delay: .12s; }
+@keyframes cardIn { from { transform: translateY(14px) scale(.96); opacity: 0; } to { transform: none; opacity: 1; } }
+.card-ico { width: clamp(42px, 8dvh, 62px); height: clamp(42px, 8dvh, 62px); border-radius: 50%; display: grid; place-items: center; background: #0a1128; color: var(--sea); flex: none; }
+.card-ico svg { width: 58%; height: 58%; }
+.card-name { font-size: clamp(15px, 2.3dvh, 18px); font-weight: 900; letter-spacing: .02em; }
+.card-desc { font-size: clamp(11.5px, 1.75dvh, 13.5px); line-height: 1.45; color: var(--dim); flex: 1; }
+.card-tag { font-size: 10.5px; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); white-space: nowrap; }
+.card-again { position: absolute; top: -7px; right: -4px; font-size: 10.5px; font-weight: 900; line-height: 1; padding: 4px 7px; border-radius: 999px; background: var(--gold); color: var(--gold-ink); letter-spacing: .02em; }
+.card[aria-pressed="true"] { border-color: var(--gold); background: var(--panel-hi); transform: translateY(-4px); }
+.card[aria-pressed="true"] .card-ico { color: var(--gold); }
+.card[aria-pressed="true"] .card-tag { border-color: var(--gold); color: var(--gold); }
+.cards.locked .card { opacity: .38; pointer-events: none; }
+.cards.locked .card[aria-pressed="true"] { opacity: 1; }
+
+/* ---- 結果 ---- */
+.p-result { display: flex; flex-direction: column; gap: 8px; }
+[data-screen="finish"] .p-result { min-height: clamp(148px, 30dvh, 236px); justify-content: center; }   /* しるしと称号を出す間は、カードがあった分の高さを空けておく（地図が動かないように） */
+.ghost { visibility: hidden; pointer-events: none; }                                                     /* 場所だけ取っておく（あとで出てくる部品） */
+.legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; font-size: 12px; color: var(--dim); min-height: 20px; }
+.legend li { display: flex; align-items: center; gap: 5px; animation: hintPop .3s ease-out; }
+.legend svg { width: 14px; height: 14px; flex: none; }
+.legend.tall { min-height: 40px; align-content: center; }      /* 結果画面：2行ぶんの高さを取っておく（地図の種類を変えても、星の大きさが変わらないように） */
+.legend b { color: var(--ink); font-weight: 900; }
+.legend .sw { width: 11px; height: 11px; border-radius: 3px; flex: none; box-sizing: border-box; border: 1px solid rgba(255, 255, 255, .28); }
+.legend .sws { display: inline-flex; gap: 2px; }
+.legend .bar { width: clamp(64px, 20vw, 120px); height: 9px; border-radius: 999px; flex: none; border: 1px solid rgba(255, 255, 255, .18); box-sizing: border-box; }
+/* 地図の種類（地形・人口・気温・雨・国・くらし） */
+.layers { display: flex; gap: 4px; }
+.layer-btn { flex: 3.2 1 0; min-width: 0; min-height: 34px; padding: 0 1px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); font-size: 12.5px; font-weight: 700; color: var(--dim); white-space: nowrap; transition: background .15s, border-color .15s, color .15s; }
+.layer-btn[aria-pressed="true"] { background: var(--panel-hi); border-color: var(--gold); color: var(--gold); }
+.layer-btn[data-k="rain"], .layer-btn[data-k="nation"] { flex-grow: 2.2; } .layer-btn[data-k="life"] { flex-grow: 4.2; }      /* 字数に合わせた幅（せまい画面でも「くらし」が入るように） */
+.layer-btn:active { transform: translateY(1px); }
+.award-box { text-align: center; }
+.kicker { margin: 0; font-size: 12px; font-weight: 700; color: var(--dim); letter-spacing: .12em; }
+.award { margin: 0; font-family: var(--display); font-weight: 800; font-size: clamp(30px, 9.5vw, 46px); line-height: 1.2; color: var(--gold); letter-spacing: .04em; text-wrap: balance; }
+.award-desc { margin: 2px 0 0; font-size: 14px; text-wrap: balance; }
+.reveal { animation: awardIn .7s cubic-bezier(.2, .9, .25, 1.15) backwards; }
+@keyframes awardIn { from { transform: scale(.7); opacity: 0; letter-spacing: .3em; } to { transform: none; opacity: 1; } }
+.name-row { display: flex; flex-direction: column; gap: 3px; }
+.name-row label { font-size: 12px; color: var(--dim); font-weight: 700; }
+.name-row input { min-height: 42px; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--line); background: #0a1128; font-size: 16px; font-weight: 700; min-width: 0; }
+.name-row input::placeholder { color: #6f7ba3; font-weight: 500; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.actions .primary { grid-column: 1 / -1; }
+.fade-in { animation: hintPop .4s ease-out backwards; }
+/* 地球儀 ⇔ 地図 の切りかえボタン（置き場所は、地球儀や地図の右下に合わせてプログラムが決める） */
+.view-btn { position: absolute; left: 0; top: 0; z-index: 2; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 13px 0 11px; border-radius: 999px; border: 1px solid var(--line); background: rgba(16, 25, 56, .94); font-size: 13px; font-weight: 700; white-space: nowrap; animation: hintPop .4s ease-out backwards; }
+.view-btn:active { transform: translateY(1px) scale(.97); }
+.view-btn svg { width: 17px; height: 17px; flex: none; color: var(--gold); }
+.view-btn .l { display: none; }
+[data-screen="result"] .stage-bottom { bottom: auto; top: 0; }      /* 結果画面の案内（「回せます」）は、舞台の上のはしに出す（右下のボタンに重ならないように） */
+@media (min-width: 560px) { .view-btn .s { display: none; } .view-btn .l { display: inline; } }
+
+.toast { pointer-events: none; position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); max-width: min(90vw, 420px); padding: 9px 16px; border-radius: 12px; background: #f2f5ff; color: #10162c; font-weight: 700; font-size: 13px; text-align: center; z-index: 5; box-shadow: 0 6px 24px rgba(0, 0, 0, .45); animation: hintPop .25s ease-out; }
+
+/* ---- 横長の画面（パソコンなど）：左に大きな地図、右にカード ---- */
+@media (min-aspect-ratio: 5/4) {
+  #app { max-width: 1720px; padding-block: 10px 16px; --side: clamp(240px, 30vw, 440px); }
+  .layout { flex-direction: row; align-items: stretch; gap: 22px; }
+  /* 地図ぴったりの高さにして上下の中央へ（「あと◯回」と案内が地図のすぐ上下に来る） */
+  [data-screen="unwrap"] .stage, [data-screen="play"] .stage, [data-screen="finish"] .stage { flex: 1 1 auto; align-self: center; height: calc((min(100vw, 1720px) - 54px - var(--side)) / 2 + 74px); max-height: 100%; }
+  .panel { flex: 0 0 var(--side); align-self: center; }
+  .cards { grid-template-columns: 1fr; gap: clamp(6px, 1.4dvh, 12px); }
+  .card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "ico name tag" "ico desc desc"; align-items: center; text-align: left; min-height: 0; padding: clamp(7px, 1.7dvh, 16px) 14px; column-gap: 12px; row-gap: 2px; }
+  .card-ico { grid-area: ico; width: clamp(34px, 7.4dvh, 64px); height: clamp(34px, 7.4dvh, 64px); }
+  .card-name { grid-area: name; font-size: clamp(15px, 2.6dvh, 22px); }
+  .card-desc { grid-area: desc; font-size: clamp(11.5px, 1.9dvh, 15.5px); }
+  .card-tag { grid-area: tag; }
+  .card[aria-pressed="true"] { transform: translateX(-6px); }
+  .p-title { align-items: flex-start; text-align: left; gap: clamp(8px, 2.2dvh, 18px); }
+  .title { align-items: flex-start; } .title .t1 { font-size: clamp(18px, 2.3vw, 34px); } .title .t2 { font-size: clamp(34px, 4.6vw, 66px); white-space: nowrap; }
+  .lead { font-size: clamp(13px, 1.25vw, 17px); }
+  .btn.big { min-width: min(220px, 100%); }
+  [data-screen="finish"] .p-result { min-height: 0; }
+  .award-box, .legend { text-align: left; justify-content: flex-start; }
+  .award { font-size: clamp(30px, 4.4vw, 62px); white-space: nowrap; } .award-desc { font-size: clamp(13px, 1.25vw, 17px); }
+  .legend { font-size: clamp(12px, 1.1vw, 14px); }
+  .hint { font-size: clamp(13px, 1.2vw, 16px); } .turns { font-size: clamp(13px, 1.2vw, 16px); } .done-btn { font-size: clamp(12.5px, 1.05vw, 14px); }
+}
+/* 横長で背が低い画面（スマホを横向きにした時など） */
+@media (min-aspect-ratio: 5/4) and (max-height: 480px) {
+  #app { padding-block: 4px 8px; gap: 2px; } .top { min-height: 32px; } .icon-btn { width: 32px; height: 32px; }
+  .btn { min-height: 38px; padding-block: 4px; } .btn.big { min-height: 46px; font-size: 17px; } .name-row input { min-height: 36px; padding-block: 3px; }
+  .hint { font-size: 12px; padding: 4px 10px; }
+  .card-again { right: auto; left: -4px; top: -6px; }      /* せまいので、右上の「場所をえらぶ」に重ならないよう左上へ */
+  .p-result { gap: 4px; } .kicker { display: none; } .award-desc { margin-top: 0; line-height: 1.35; } .name-row label { font-size: 11px; }
+  .actions { grid-template-columns: 1fr 1fr 1.15fr; gap: 6px; } .actions .primary { grid-column: auto; } .actions .btn { padding-inline: 4px; font-size: 14px; } .actions .l { display: none; }      /* ボタン3つを1列に（「画像を保存」は短く「保存」） */
+  .layer-btn { min-height: 30px; } .legend.tall { min-height: 36px; }
+}
+/* 縦長で背が低い画面 */
+@media (max-height: 560px) and (max-aspect-ratio: 1249/1000) { .card { min-height: 126px; } .card-ico { width: 36px; height: 36px; } }
+/* 縦長で、あまり背が高くない画面（小さめのスマホ）：結果画面のボタン3つを1列にして、そのぶん星を大きく見せる */
+@media (max-height: 700px) and (max-aspect-ratio: 1249/1000) { .actions { grid-template-columns: 1fr 1fr 1.15fr; gap: 6px; } .actions .primary { grid-column: auto; } .actions .btn { padding-inline: 4px; } }
+@media (prefers-reduced-motion: reduce) { .card, .hint.pop, .legend li, .reveal, .fade-in, .toast, .view-btn { animation: none; } .layer-btn, .done-btn { transition: none; } }
+</style>
+</head>
+<body>
+<div id="app" data-screen="title">
+  <div class="sky" aria-hidden="true"></div>
+  <canvas id="view" role="img" aria-label="星の地図"></canvas>
+  <header class="top">
+    <div class="brand">もしもの地球</div>
+    <button id="btnMute" class="icon-btn" type="button" aria-label="音を消す" aria-pressed="false"></button>
+  </header>
+  <main class="layout">
+    <div class="stage" id="stage">
+      <div class="stage-top"><div class="turns" id="turns" hidden></div><button id="btnDone" class="done-btn" type="button" hidden>これで完成</button></div>
+      <div class="stage-bottom"><p class="hint" id="hint" aria-live="polite" hidden></p></div>
+      <button id="btnView" class="view-btn" type="button" hidden></button>
+    </div>
+    <aside class="panel" id="panel">
+      <section class="p-title" id="pTitle">
+        <h1 class="title"><span class="t1">1分でつくる</span><span class="t2">もしもの地球</span></h1>
+        <p class="lead"><span><i>出来事カードを5回までえらんで、</i><i>星をつくろう。</i></span><span><i>完成した星には称号がつきます</i><i>（全10種類）。</i></span></p>
+        <button id="btnStart" class="btn primary big" type="button" disabled>はじめる</button>
+      </section>
+      <section class="p-play" id="pPlay" hidden>
+        <div class="cards" id="cards"></div>
+      </section>
+      <section class="p-result" id="pResult" hidden>
+        <div class="layers" id="layers" role="group" aria-label="地図の種類" hidden></div>
+        <ul class="legend" id="legend" aria-label="地図の見方"></ul>
+        <div class="award-box" id="awardBox" hidden>
+          <p class="kicker" id="kicker">この星の称号</p>
+          <h2 class="award" id="award"></h2>
+          <p class="award-desc" id="awardDesc"></p>
+        </div>
+        <div class="name-row" id="nameRow" hidden>
+          <label for="planetName">星の名前（つけなくてもOK）</label>
+          <input id="planetName" type="text" maxlength="12" autocomplete="off" enterkeyhint="done" placeholder="例：ポチ星">
+        </div>
+        <div class="actions" id="actions" hidden>
+          <button id="btnSave" class="btn" type="button"><span class="l">画像を</span>保存</button>
+          <button id="btnShare" class="btn" type="button">シェア</button>
+          <button id="btnAgain" class="btn primary" type="button">もう1回</button>
+        </div>
+      </section>
+    </aside>
+  </main>
+  <div class="toast" id="toast" role="status" hidden></div>
+</div>
+<script>
+'use strict';
+/* ============================================================
+   地球のしくみ（地形・雨・気温・川・しるし・称号）。画面がなくても動く。
+   地図は 横512×縦256マス。左右の端はつながっている。上が北。
+   高さ h は「海面を0」とした数字（1.0 でだいたい5000m）。
+   ============================================================ */
+const EARTH = (() => {
+  const W = 512, H = 256, N = W * H;
+  const PI = Math.PI, TAU = PI * 2;
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const smooth = (a, b, v) => { let t = (v - a) / (b - a); t = t < 0 ? 0 : t > 1 ? 1 : t; return t * t * (3 - 2 * t); };
+  function rng(seed) {
+    let a = seed >>> 0;
+    return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  const wrapX = x => { x %= W; return x < 0 ? x + W : x; };
+
+  /* ---------- 設定（ここを書き換えると調整できます） ---------- */
+  const CFG = {
+    landMin: 0.26, landMax: 0.33,       // 最初の地球の、陸の割合（この間でランダム）
+    lapse: 30,                          // 高さ1.0（約5000m）で下がる気温（℃）
+    iceT: -5, seaIceT: -11,              // これより寒いと 氷（陸）／海の氷
+    desertRain: 0.2, greenRain: 0.36,   // 雨がこれより少ないと砂漠／これより多いと緑
+    mountainH: 0.62,                    // 海面からこれより高いと「山」
+    riverMin: 16,                       // これ以上の水が集まる所を川として描く
+    lakeDepth: 0.02, lakeRain: 0.22,    // くぼみがこれより深く、雨がこれより多いと湖になる
+    greatRiver: 2.2,                    // 称号を決める時、「大河誕生」の川は ふつうの川の何倍に数えるか
+  };
+
+  /* ---------- でこぼこを作るノイズ（3次元。球の上で使うので継ぎ目が出ない） ---------- */
+  function makeNoise(seed) {
+    const r = rng(seed), p = new Uint8Array(512);
+    for (let i = 0; i < 256; i++) p[i] = i;
+    for (let i = 255; i > 0; i--) { const j = (r() * (i + 1)) | 0, t = p[i]; p[i] = p[j]; p[j] = t; }
+    for (let i = 0; i < 256; i++) p[i + 256] = p[i];
+    const grad = (g, x, y, z) => { g &= 15; const u = g < 8 ? x : y, v = g < 4 ? y : (g === 12 || g === 14 ? x : z); return ((g & 1) ? -u : u) + ((g & 2) ? -v : v); };
+    function n3(x, y, z) {
+      const X = Math.floor(x), Y = Math.floor(y), Z = Math.floor(z); x -= X; y -= Y; z -= Z;
+      const xi = X & 255, yi = Y & 255, zi = Z & 255;
+      const u = x * x * x * (x * (x * 6 - 15) + 10), v = y * y * y * (y * (y * 6 - 15) + 10), w = z * z * z * (z * (z * 6 - 15) + 10);
+      const A = p[xi] + yi, AA = p[A] + zi, AB = p[A + 1] + zi, B = p[xi + 1] + yi, BA = p[B] + zi, BB = p[B + 1] + zi;
+      const a = grad(p[AA], x, y, z), b = grad(p[BA], x - 1, y, z), c = grad(p[AB], x, y - 1, z), d = grad(p[BB], x - 1, y - 1, z);
+      const e = grad(p[AA + 1], x, y, z - 1), f = grad(p[BA + 1], x - 1, y, z - 1), g = grad(p[AB + 1], x, y - 1, z - 1), h = grad(p[BB + 1], x - 1, y - 1, z - 1);
+      const l1 = a + (b - a) * u, l2 = c + (d - c) * u, l3 = e + (f - e) * u, l4 = g + (h - g) * u, m1 = l1 + (l2 - l1) * v, m2 = l3 + (l4 - l3) * v;
+      return m1 + (m2 - m1) * w;
+    }
+    function fbm(x, y, z, oct) { let a = 1, f = 1, s = 0, n = 0; for (let o = 0; o < oct; o++) { s += a * n3(x * f, y * f, z * f); n += a; a *= 0.5; f *= 2.03; } return s / n; }
+    return { n3, fbm };
+  }
+
+  /* ---------- 緯度・経度の表（行ごと・列ごと） ---------- */
+  const LAT = new Float32Array(H), SINLAT = new Float32Array(H), COSLAT = new Float32Array(H), SINLON = new Float32Array(W), COSLON = new Float32Array(W);
+  for (let y = 0; y < H; y++) { LAT[y] = PI / 2 - (y + 0.5) / H * PI; SINLAT[y] = Math.sin(LAT[y]); COSLAT[y] = Math.cos(LAT[y]); }
+  for (let x = 0; x < W; x++) { const lon = (x + 0.5) / W * TAU - PI; SINLON[x] = Math.sin(lon); COSLON[x] = Math.cos(lon); }
+  const lonScale = gy => Math.max(0.42, Math.cos(PI / 2 - (clamp(gy, 0, H - 1) + 0.5) / H * PI));   // 高緯度ほど、地図では横に広く見える（地球儀で丸く見えるように）
+
+  /* ---------- 最初の地球：陸地がいくつか浮かんでいる ---------- */
+  function newWorld(seed) {
+    seed = (seed >>> 0) || 1;
+    let best = null;
+    for (let tryN = 0; tryN < 6; tryN++) {
+      const w = buildWorld(seed + tryN * 7919);
+      const c = continents(w);
+      w.gen = { tries: tryN + 1, big: c.big, land: c.land / N };
+      if (!best) best = w;
+      if (c.big >= 3 && c.big <= 7) { best = w; break; }
+    }
+    best.seed = seed;
+    update(best);
+    return best;
+  }
+  function buildWorld(seed) {
+    const r = rng(seed), nz = makeNoise(seed ^ 0x51ed27), e = new Float32Array(N);
+    const ox = r() * 50, oy = r() * 50, oz = r() * 50, f1 = 1.25 + r() * 0.35;
+    for (let y = 0; y < H; y++) {
+      const sy = SINLAT[y], cy = COSLAT[y], pol = smooth(52, 84, Math.abs(LAT[y]) * 180 / PI);
+      for (let x = 0; x < W; x++) {
+        const px = cy * COSLON[x], pz = cy * SINLON[x];
+        e[y * W + x] = nz.fbm(px * f1 + ox, sy * f1 + oy, pz * f1 + oz, 5) + 0.3 * nz.fbm(px * 3.7 + oy, sy * 3.7 + oz, pz * 3.7 + ox, 4) - 0.42 * pol;
+      }
+    }
+    const sorted = Float32Array.from(e).sort(), frac = CFG.landMin + r() * (CFG.landMax - CFG.landMin), thr = sorted[Math.floor(N * (1 - frac))];
+    const h = new Float32Array(N);
+    for (let y = 0; y < H; y++) {
+      const sy = SINLAT[y], cy = COSLAT[y];
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x, d = e[i] - thr, px = cy * COSLON[x], pz = cy * SINLON[x];
+        if (d > 0) {
+          const inland = smooth(0.02, 0.16, d);
+          const mt = Math.max(0, nz.fbm(px * 2.6 + oz, sy * 2.6 + ox, pz * 2.6 + oy, 4) - 0.1) * 2.4 * inland;   // もともとある山地（ひかえめ）
+          h[i] = 0.012 + 0.62 * Math.pow(d, 1.45) + mt * mt * 0.62 + 0.004 * nz.n3(px * 14 + ox, sy * 14, pz * 14);      // 海ぞいは平ら、内陸ほど少し高い
+        } else { const dd = -d; h[i] = Math.max(-1.05, -0.008 - 0.42 * dd - 3.2 * Math.max(0, dd - 0.085) + 0.012 * smooth(0.08, 0.2, dd) * nz.n3(px * 9, sy * 9 + oy, pz * 9)); }   // 陸のまわりは浅い海（大陸だな）、その先は深い海
+      }
+    }
+    const wig = new Float32Array(N);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const cy = COSLAT[y]; wig[y * W + x] = 0.16 * nz.fbm(cy * COSLON[x] * 2.1 + oy, SINLAT[y] * 2.1 + ox, cy * SINLON[x] * 2.1 + oz, 2); }
+    return { seed, W, H, noise: nz, r, wig, h, radj: new Float32Array(N), sea: 0, toff: 0, hv: new Float32Array(N), rv: new Float32Array(N), seaV: 0, toffV: 0,
+      rain: new Float32Array(N), temp: new Float32Array(N), filled: new Float32Array(N), down: new Int32Array(N), acc: new Float32Array(N), lake: new Uint8Array(N), order: new Int32Array(N), nOrder: 0,
+      volc: [], craters: [], rivers: [], history: [], marks: null, stats: null };
+  }
+  function continents(w) {      // 大きな陸のかたまりの数（最初の地球が「いくつか浮かんでいる」形かを確かめる）
+    const lab = new Int32Array(N), st = new Int32Array(N); let big = 0, land = 0, n = 0;
+    for (let s = 0; s < N; s++) {
+      if (w.h[s] <= w.sea || lab[s]) continue;
+      let top = 0, area = 0; st[top++] = s; lab[s] = ++n;
+      while (top) { const i = st[--top]; area++; const x = i % W, y = (i - x) / W;
+        const nb = [y * W + wrapX(x + 1), y * W + wrapX(x - 1), y > 0 ? i - W : -1, y < H - 1 ? i + W : -1];
+        for (const j of nb) if (j >= 0 && !lab[j] && w.h[j] > w.sea) { lab[j] = n; st[top++] = j; } }
+      land += area; if (area > 700) big++;
+    }
+    return { big, land, n };
+  }
+
+  /* ---------- 気温と雨 ----------
+     気温：赤道から遠いほど、高いほど寒い。
+     雨：海の上で湿った風が、陸を進むうちに雨を降らせて乾いていく。山を登る時にたくさん降らせるので、山の向こう側（風下）は乾く。 */
+  const rainE = new Float32Array(N), rainW = new Float32Array(N), tmpF = new Float32Array(N), hBlur = new Float32Array(N);
+  function blurV(src, dst, rad) {         // 上下方向にならす
+    const k = 1 / (rad * 2 + 1);
+    for (let x = 0; x < W; x++) { let sum = 0; for (let d = -rad; d <= rad; d++) sum += src[clamp(d, 0, H - 1) * W + x];
+      for (let y = 0; y < H; y++) { dst[y * W + x] = sum * k; sum += src[Math.min(H - 1, y + rad + 1) * W + x] - src[Math.max(0, y - rad) * W + x]; } }
+  }
+  function blurH(src, dst, rad) {         // 左右方向にならす（端はつながる）
+    const k = 1 / (rad * 2 + 1);
+    for (let y = 0; y < H; y++) { const row = y * W; let sum = 0; for (let d = -rad; d <= rad; d++) sum += src[row + wrapX(d)];
+      for (let x = 0; x < W; x++) { dst[row + x] = sum * k; sum += src[row + wrapX(x + rad + 1)] - src[row + wrapX(x - rad)]; } }
+  }
+  function sweep(h, sea, out, dir) {
+    for (let y = 0; y < H; y++) {
+      const row = y * W; let m = 0.7, alt = 0;      // m＝風の湿り気　alt＝空気が今いる高さ（これより高い所を登る時に雨を降らせる）
+      for (let pass = 0; pass < 2; pass++) for (let s = 0; s < W; s++) {
+        const i = row + (dir > 0 ? s : W - 1 - s), e = h[i] - sea;
+        if (e <= 0) { m += (1 - m) * 0.08; alt = alt > 0.02 ? alt - 0.02 : 0; out[i] = m; }
+        else {
+          let wet = m; const lift = hBlur[i] - sea - alt;
+          if (lift > 0) { const lost = Math.min(0.8, lift * 3.6) * m; m -= lost; wet = Math.min(1, m + lost * 1.5); alt = hBlur[i] - sea; }   // 登り坂：雨を降らせて、風は乾く
+          else alt = Math.max(hBlur[i] - sea, alt - 0.0035);                                                                               // 下り坂：しばらく乾いたまま（山の風下）
+          m *= 0.9952; if (m < 0.46) m += (0.46 - m) * 0.022; out[i] = wet;                                          // 陸の上でも、少しずつ湿り気がもどる
+        }
+      }
+    }
+  }
+  function climate(w) {
+    const h = w.hv, sea = w.seaV, toff = w.toffV, rain = w.rain, temp = w.temp, rv = w.rv;
+    blurV(h, hBlur, 12);          // 山の高さは上下にならして見る（ぽつんと立つ山は風がよけて通る。長い山脈ほど雨をさえぎる）
+    sweep(h, sea, rainE, -1);     // 東風（東から西へ）：赤道の近くと、北極・南極の近く
+    sweep(h, sea, rainW, 1);      // 西風（西から東へ）：その間
+    for (let y = 0; y < H; y++) {
+      const deg = Math.abs(LAT[y]) * 180 / PI, row = y * W;
+      const west = smooth(24, 34, deg) * (1 - smooth(58, 68, deg));                                   // 西風の強さ（0〜1）
+      const plat = 0.64 + 0.30 * Math.cos(LAT[y] * 6) * (1 - 0.45 * deg / 90) - 0.12 * smooth(65, 90, deg);   // 緯度ごとの雨の降りやすさ（赤道と中緯度が多く、その間と極が少ない）
+      const tsea = 28 - 46 * Math.pow(deg / 90, 1.6) + toff;
+      for (let x = 0; x < W; x++) {
+        const i = row + x, hh = h[i];
+        tmpF[i] = (rainE[i] * (1 - west) + rainW[i] * west) * (plat + w.wig[i]);
+        temp[i] = hh > sea ? tsea - CFG.lapse * (hh - sea) : tsea;
+      }
+    }
+    // ぼかして、横すじや帯の境目をなめらかにする
+    blurV(tmpF, rainE, 3); blurH(rainE, tmpF, 2); blurV(tmpF, rainE, 2);
+    for (let i = 0; i < N; i++) rainE[i] += rv[i];
+    for (const r of w.rivers) for (const i of r.path) { const x = i % W, y = (i - x) / W;        // 大河のほとりは緑になる
+      for (let dy = -6; dy <= 6; dy++) { const yy = y + dy; if (yy < 0 || yy >= H) continue; for (let dx = -6; dx <= 6; dx++) { const g = 0.52 - 0.075 * Math.hypot(dx, dy); if (g > 0.08) { const j = yy * W + wrapX(x + dx); if (rainE[j] < g) rainE[j] = g; } } } }
+    for (let i = 0; i < N; i++) { const v = rainE[i]; rain[i] = v < 0 ? 0 : v > 1 ? 1 : v; }
+  }
+
+  /* ---------- 川と湖 ----------
+     海から陸へ「低い順」に広げていき、どのマスも海まで下れる道（down）を作る。途中のくぼみは水がたまる所（湖の候補）。
+     そのあと上流から順に水を集めて、たくさん集まる所が川になる。 */
+  const hk = new Float32Array(N + 1), hi = new Int32Array(N + 1), seen = new Uint8Array(N);
+  function hydro(w) {
+    const h = w.hv, sea = w.seaV, filled = w.filled, down = w.down, acc = w.acc, lake = w.lake, order = w.order, rain = w.rain;
+    let hn = 0, no = 0;
+    const push = (k, i) => { let c = hn++; while (c > 0) { const p = (c - 1) >> 1; if (hk[p] <= k) break; hk[c] = hk[p]; hi[c] = hi[p]; c = p; } hk[c] = k; hi[c] = i; };
+    const pop = () => { const top = hi[0], k = hk[--hn], i = hi[hn]; let c = 0; for (;;) { let l = c * 2 + 1; if (l >= hn) break; if (l + 1 < hn && hk[l + 1] < hk[l]) l++; if (hk[l] >= k) break; hk[c] = hk[l]; hi[c] = hi[l]; c = l; } hk[c] = k; hi[c] = i; return top; };
+    seen.fill(0); let anySea = false, low = 0;
+    for (let i = 0; i < N; i++) { down[i] = -1; acc[i] = 0; lake[i] = 0; if (h[i] <= sea) { seen[i] = 1; filled[i] = sea; anySea = true; } if (h[i] < h[low]) low = i; }
+    if (!anySea) { seen[low] = 1; filled[low] = h[low]; }
+    for (let i = 0; i < N; i++) { if (!seen[i] || (anySea && h[i] > sea)) continue; const x = i % W, y = (i - x) / W;   // 海ぞいのマスから始める
+      let edge = false; for (let dy = -1; dy <= 1 && !edge; dy++) { const yy = y + dy; if (yy < 0 || yy >= H) continue; for (let dx = -1; dx <= 1; dx++) { const j = yy * W + wrapX(x + dx); if (!seen[j]) { edge = true; break; } } }
+      if (edge) push(filled[i], i); }
+    while (hn) {
+      const c = pop(), x = c % W, y = (c - x) / W, fc = filled[c];
+      for (let dy = -1; dy <= 1; dy++) { const yy = y + dy; if (yy < 0 || yy >= H) continue;
+        for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const j = yy * W + wrapX(x + dx); if (seen[j]) continue;
+          seen[j] = 1; const f = h[j] > fc ? h[j] : fc + 1e-5; filled[j] = f; down[j] = c; order[no++] = j; push(f + ((dx && dy) ? 2e-6 : 0), j); } }
+    }
+    w.nOrder = no;
+    for (let k = 0; k < no; k++) { const i = order[k], r = rain[i]; acc[i] += r * r * 1.6 + 0.02; }
+    for (let k = no - 1; k >= 0; k--) { const i = order[k], d = down[i]; if (d >= 0 && h[d] > sea) acc[d] += acc[i]; }
+    for (let k = 0; k < no; k++) { const i = order[k]; if (filled[i] - h[i] > CFG.lakeDepth && (rain[i] > CFG.lakeRain || acc[i] > CFG.riverMin * 2)) lake[i] = 1; }
+    for (const rv of w.rivers) { const n = rv.path.length; rv.path.forEach((i, k) => { if (h[i] > sea) { const q = rv.q * (0.4 + 0.6 * k / n); if (acc[i] < q) acc[i] = q; lake[i] = 0; } }); }   // 大河の水の量
+  }
+
+  /* ---------- 地形が変わったあとの計算（気温と雨 → 川と湖 → しるしと称号） ---------- */
+  function syncView(w) { w.hv.set(w.h); w.rv.set(w.radj); w.seaV = w.sea; w.toffV = w.toff; }
+  function update(w) { syncView(w); for (const r of w.rivers) routeRiver(w, r); climate(w); hydro(w); w.stats = null; w.marks = null; return w; }
+
+  /* ---------- 大河の道すじ：水源から、低い土地を選びながら海まで ---------- */
+  const cost = new Float32Array(N), from = new Int32Array(N), closed = new Uint32Array(N), sk = new Float32Array(2 * N + 2), si = new Int32Array(2 * N + 2); let closeN = 0;
+  function spread(w, src, stop) {       // 水源から陸の上を広がっていく（低い所ほど進みやすい）。stop(マス) が true を返したら終わり
+    const h = w.h, sea = w.sea, CAP = sk.length, tag = ++closeN; let hn = 0;
+    const push = (k, i) => { if (hn >= CAP) return; let c = hn++; while (c > 0) { const p = (c - 1) >> 1; if (sk[p] <= k) break; sk[c] = sk[p]; si[c] = si[p]; c = p; } sk[c] = k; si[c] = i; };
+    const pop = () => { const top = si[0], k = sk[--hn], i = si[hn]; let c = 0; for (;;) { let l = c * 2 + 1; if (l >= hn) break; if (l + 1 < hn && sk[l + 1] < sk[l]) l++; if (sk[l] >= k) break; sk[c] = sk[l]; si[c] = si[l]; c = l; } sk[c] = k; si[c] = i; return top; };
+    cost.fill(1e9); cost[src] = 0; from[src] = -1; push(0, src);
+    while (hn) {
+      const c = pop(); if (closed[c] === tag) continue; closed[c] = tag;                            // 1つのマスを調べるのは1回だけ（同じマスを何度も調べ直して、計算が終わらなくなるのを防ぐ）
+      if (stop(c, cost[c])) return c;
+      if (h[c] <= sea && c !== src) continue;                                                       // 海のマスには着くだけ（その先へは広がらない）
+      const x = c % W, y = (c - x) / W, kx = lonScale(y);
+      for (let dy = -1; dy <= 1; dy++) { const yy = y + dy; if (yy < 0 || yy >= H) continue;
+        for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const j = yy * W + wrapX(x + dx); if (closed[j] === tag) continue; const e = h[j] - sea;
+          const nc = Math.fround(cost[c] + Math.hypot(dx * kx, dy) * (e > 0 ? 1 + 16 * Math.max(0, e - 0.02) : 1));      // cost と同じ細かさ（32ビット）にそろえてから比べる
+          if (nc < cost[j]) { cost[j] = nc; from[j] = c; push(nc, j); } } }
+    }
+    return -1;
+  }
+  function pathTo(end) { const p = []; for (let i = end; i >= 0; i = from[i]) p.push(i); return p.reverse(); }
+  const RIVER_FAR = 105;      // 大河の長さのめやす（水源から河口まで、まっすぐ測って このくらいは流れるようにする）
+  function newRiver(w, sx, sy, q, way) {     // 水源 (sx,sy) から、できるだけ遠くの海まで流れる大河を作る。way＝なぞった道すじ（[{x,y}]）がある時は、それにそって流す
+    if (way) return drawnRiver(w, q, way);
+    const src = sy * W + sx, kx = lonScale(sy); let best = -1, bs = -1e9;
+    spread(w, src, (c, cc) => { if (w.h[c] <= w.sea) { const x = c % W, y = (c - x) / W; let dx = Math.abs(x - sx); if (dx > W / 2) dx = W - dx; const d = Math.hypot(dx * kx, y - sy), sc = Math.min(d, RIVER_FAR) - 0.12 * cc; if (sc > bs) { bs = sc; best = c; } } return cc > 260; });
+    if (best < 0) return null;
+    const path = pathTo(best), r = { sx, sy, mx: best % W, my: (best - best % W) / W, q, path };
+    return remember(r);
+  }
+  function remember(r) {                     // できた川の道すじを覚えておく（地形が変わった後も、同じ所を流れるように。5マスおきの点と、河口）
+    r.way = []; for (let k = 0; k < r.path.length - 1; k += 5) { const c = r.path[k]; r.way.push({ x: c % W, y: (c - c % W) / W }); }
+    const e = r.path[r.path.length - 1]; r.way.push({ x: e % W, y: (e - e % W) / W }); return r;
+  }
+  function seaDist(w, x, y, maxR) {          // いちばん近い海までの距離（maxR まで調べる。海の上なら 0、近くに海がなければ maxR）
+    if (w.h[y * W + x] <= w.sea) return 0; const kx = lonScale(y), bx = Math.ceil(maxR / kx); let bd = maxR * maxR;
+    for (let dy = -maxR; dy <= maxR; dy++) { const yy = y + dy; if (yy < 0 || yy >= H) continue; for (let dx = -bx; dx <= bx; dx++) { const d = dx * dx * kx * kx + dy * dy; if (d < bd && w.h[yy * W + wrapX(x + dx)] <= w.sea) bd = d; } }
+    return Math.sqrt(bd);
+  }
+  /* なぞった道すじの川を作る。
+     ・線が海をまたいでいる時は、陸の部分のうち、いちばん長い川になるものを使う
+     ・どちら向きになぞっても、海に出たはしが河口になる（どちらも陸の中なら、海から遠いほうが水源。川は内陸から海へ流れる）
+     ・短い時は、線の向きのまま先へのばす（「大河」のカードなので、小さな川にはしない。タップで作る川と同じくらいの長さまで）
+     ・線が陸の上で終わっていたら、最後は いちばん行きやすい海へ流す */
+  const wayLen = (way, i0, i1) => { let s = 0; for (let k = i0 + 1; k <= i1; k++) { let dx = Math.abs(way[k].x - way[k - 1].x); if (dx > W / 2) dx = W - dx; s += Math.hypot(dx * lonScale((way[k].y + way[k - 1].y) / 2), way[k].y - way[k - 1].y); } return s; };
+  function extendWay(w, a, b, need, toSea) {     // 点 a→b の向きのまま、b の先へ need マスぶんのばした道すじ（くねらせる）。toSea＝下流側：海に出たらそこで終わり（海の点もふくめる）／上流側：海べりに来たら手前で止める
+    const kx = lonScale(b.y); let dx = b.x - a.x; if (dx > W / 2) dx -= W; else if (dx < -W / 2) dx += W;
+    let ex = dx * kx, ey = b.y - a.y; const l = Math.hypot(ex, ey), out = []; if (l < 1e-6 || need < 6) return out;
+    ex /= l; ey /= l; const so = (b.x * 0.37 + b.y * 0.91) % 97; let prev = seaDist(w, b.x, b.y, 5);
+    for (let d = 6; d <= need + 3; d += 6) { const wob = (9 * w.noise.n3(d * 0.03, so, 3.3) + 4 * w.noise.n3(d * 0.085, so, 8.8)) * Math.min(1, d / 24); let p = null, sd = 0;
+      for (const k of [1, 0.4, 0]) {          // くねらせた先が海や海べりなら、くねりを小さくして もう一度
+        const y = Math.round(b.y + ey * d + ex * wob * k); if (y < 3 || y > H - 4) continue; const q = { x: wrapX(Math.round(b.x + (ex * d - ey * wob * k) / kx)), y };
+        if (w.h[y * W + q.x] <= w.sea) { if (k === 0 && toSea) p = q; continue; }
+        if (!toSea) { sd = seaDist(w, q.x, q.y, 5); if (sd < 5 && sd <= prev && k > 0) continue; }
+        p = q; break; }
+      if (!p) break; if (w.h[p.y * W + p.x] <= w.sea) { out.push(p); break; }                 // 下流側：海に出た
+      if (!toSea) { if (sd < 5 && sd <= prev) break; prev = sd; }                               // 上流側：水源が向こう岸の海べりにならないように
+      out.push(p); }
+    return out;
+  }
+  function planWay(w, way0, bi, bj) {          // なぞった線の「陸が続いている部分」way0[bi..bj] から、川の道すじ（水源→河口）を作る
+    const n = way0.length; let way = way0.slice(bi, bj + 1), head = bi > 0 ? way0[bi - 1] : null, tail = bj < n - 1 ? way0[bj + 1] : null;      // head・tail＝その部分の前後で、海に出た点
+    const a = way[0], b = way[way.length - 1];
+    if (head && !tail ? true : !head && !tail ? seaDist(w, a.x, a.y, 30) < seaDist(w, b.x, b.y, 30) : false) { way.reverse(); const t = head; head = tail; tail = t; }   // 海に出たはしが河口。どちらも陸の中なら、海から遠いほうが水源
+    const g = way.length - 1; if (tail) way.push(tail);
+    let len = wayLen(way, 0, way.length - 1);
+    if (!tail && len < RIVER_FAR) { const ext = extendWay(w, way[Math.max(0, g - 4)], way[g], RIVER_FAR - len, true); if (ext.length) { way = way.concat(ext); len = wayLen(way, 0, way.length - 1); } }      // 下流へのばす
+    if (!head && len < RIVER_FAR) { const ext = extendWay(w, way[Math.min(g, 4)], way[0], RIVER_FAR - len, false); if (ext.length) { way = ext.reverse().concat(way); len = wayLen(way, 0, way.length - 1); } }   // 上流へのばす
+    return { way, len };
+  }
+  function drawnRiver(w, q, way0) {
+    const land = p => w.h[p.y * W + p.x] > w.sea, n = way0.length; let best = null;
+    for (let i = 0; i < n; i++) { if (!land(way0[i])) continue; let j = i; while (j + 1 < n && land(way0[j + 1])) j++;        // 線が海をまたいでいる時は、陸の部分ごとに ためして、いちばん長い川になるものを選ぶ
+      const pl = planWay(w, way0, i, j); if (!best || pl.len > best.len) best = pl; i = j; }
+    if (!best) return null;                                                                                  // 道すじが全部 海の上なら作れない
+    const way = best.way, r = { sx: way[0].x, sy: way[0].y, mx: 0, my: 0, q, path: [], way }; routeWay(w, r); if (r.path.length < 2) return null;
+    return remember(r);
+  }
+  /* 道すじにそって流す：陸の上の点を順にたどる。海に出たらそこが河口。最後の点が陸なら、いちばん行きやすい海まで流す */
+  function routeWay(w, r) {
+    const sea = c => w.h[c] <= w.sea, way = r.way; let f = 0; while (f < way.length && sea(way[f].y * W + way[f].x)) f++;
+    if (f >= way.length) { r.path = []; return; }                                              // 道すじが全部しずんだら、川はなくなる
+    let cur = way[f].y * W + way[f].x, path = [cur], done = false; r.sx = way[f].x; r.sy = way[f].y;
+    for (let k = f + 1; k < way.length && !done; k++) { const t = way[k], ti = t.y * W + t.x; if (ti === cur) continue;
+      if (sea(ti)) { const end = spread(w, cur, (c, cc) => { if (!sea(c)) return false; const x = c % W, y = (c - x) / W; let dx = Math.abs(x - t.x); if (dx > W / 2) dx = W - dx; return dx * lonScale(y) < 9 && Math.abs(y - t.y) < 9; });
+        if (end >= 0) { path = path.concat(pathTo(end).slice(1)); done = true; } break; }
+      let hit = false; const end = spread(w, cur, (c, cc) => { if (c === ti) { hit = true; return true; } return cc > 90; });      // 次の点へ（遠回りしすぎる時は、あきらめて海へ）
+      if (!hit) break; path = path.concat(pathTo(end).slice(1)); cur = ti; }
+    if (!done) { const end = spread(w, cur, c => sea(c)); if (end >= 0 && end !== cur) path = path.concat(pathTo(end).slice(1)); }
+    r.path = path; const last = path[path.length - 1]; r.mx = last % W; r.my = (last - last % W) / W;
+  }
+  /* 地形が変わった後：前と同じ道すじで引き直す。とちゅうが海に沈んだら そこが河口になり、海が遠のいたら 前の河口から海まで のびる（水源まで沈んだら、川はなくなる） */
+  function routeRiver(w, r) { if (!r.way) remember(r); routeWay(w, r); }
+  function finish(w) { w.stats = stats(w); w.marks = marks(w); return w; }   // 完成した時：しるしと、称号を決めるための数字
+
+  /* ---------- その土地が何か（海・氷・砂漠・緑・山など）を調べる ---------- */
+  const B = { SEA: 0, SEAICE: 1, LAKE: 2, ICE: 3, DESERT: 4, STEPPE: 5, GREEN: 6, TUNDRA: 7, MOUNT: 8 };
+  function biomeAt(w, i) {
+    const e = w.hv[i] - w.seaV, t = w.temp[i];
+    if (e <= 0) return t < CFG.seaIceT ? B.SEAICE : B.SEA;
+    if (w.lake[i]) return B.LAKE;
+    if (t < CFG.iceT) return B.ICE;
+    if (e > CFG.mountainH) return B.MOUNT;
+    const r = w.rain[i];
+    if (t < 2) return B.TUNDRA;
+    if (r < CFG.desertRain) return B.DESERT;
+    if (r < CFG.greenRain) return B.STEPPE;
+    return B.GREEN;
+  }
+  function stats(w) {
+    const cnt = new Float64Array(9); let area = 0, landA = 0, riverLen = 0, high = 0, iceLow = 0;
+    const lab = new Int32Array(N), great = new Uint8Array(N); for (const r of w.rivers) for (const i of r.path) great[i] = 1;
+    for (let y = 0; y < H; y++) { const a = COSLAT[y];       // 地球儀での広さで数える（高緯度のマスは小さい）
+      for (let x = 0; x < W; x++) { const i = y * W + x, b = biomeAt(w, i); cnt[b] += a; area += a; if (b < B.LAKE) continue;
+        landA += a; const e = w.hv[i] - w.seaV; high += a * smooth(0.2, 0.6, e);                                               // 山：高い所ほど重く数える（高原もふくむ）
+        if (b === B.ICE && e <= CFG.mountainH) iceLow += a;                                                                    // 氷：山の雪は「山」のほうで数えるので入れない
+        if (w.acc[i] >= CFG.riverMin && b !== B.ICE && b !== B.LAKE) riverLen += a * Math.log2(w.acc[i] / CFG.riverMin + 1) * (great[i] ? CFG.greatRiver : 1); } }
+    // 島の数：小さな陸のかたまり
+    const st = new Int32Array(N); let islands = 0, comps = 0;
+    for (let s = 0; s < N; s++) { if (w.hv[s] <= w.seaV || lab[s]) continue; let top = 0, ar = 0; st[top++] = s; lab[s] = ++comps;
+      while (top) { const i = st[--top], x = i % W, y = (i - x) / W; ar += COSLAT[y];
+        for (let dy = -1; dy <= 1; dy++) { const yy = y + dy; if (yy < 0 || yy >= H) continue; for (let dx = -1; dx <= 1; dx++) { const j = yy * W + wrapX(x + dx); if (!lab[j] && w.hv[j] > w.seaV) { lab[j] = comps; st[top++] = j; } } } }
+      if (ar >= 5 && ar < 900) islands++; }
+    landA = Math.max(landA, 1);
+    // クレーター：ふちが海の上に見えているぶんだけ数える（深い海に落ちた隕石のあとは見えないので数えない）
+    let crater = 0; for (const c of w.craters) { const kx = lonScale(c.y); let vis = 0; for (let k = 0; k < 16; k++) { const an = k * Math.PI / 8, y = clamp(Math.round(c.y + Math.sin(an) * c.r), 0, H - 1), x = wrapX(Math.round(c.x + Math.cos(an) * c.r / kx)); if (w.hv[y * W + x] > w.seaV) vis++; } crater += vis / 16; }
+    // どれも「星の表面ぜんたいに対する割合」（陸が広い・せまいで数字がぶれないように、陸の中での割合にはしない）
+    return { sea: (cnt[B.SEA] + cnt[B.SEAICE]) / area, land: landA / area, ice: (iceLow + cnt[B.SEAICE]) / area, desert: cnt[B.DESERT] / area, green: cnt[B.GREEN] / area,
+      mount: high / area, lake: cnt[B.LAKE] / area, river: riverLen / area, islands, volc: w.volc.length, crater, landCells: landA };
+  }
+
+  /* ---------- しるし：いちばん栄えている所（★ capital）・栄えている所・大きな山・砂漠 ---------- */
+  const scoreF = new Float32Array(N), scoreB = new Float32Array(N), dist = new Uint8Array(N);
+  /* 住みやすさ：平ら・低い・暖かい・水（川や海）が近い・雨がある所ほど高い。scoreF に入る（ぼかして「このあたり一帯が良い」にしたもの）。dist＝海までの近さ */
+  function habit(w) {
+    const h = w.hv, sea = w.seaV, rain = w.rain, temp = w.temp, acc = w.acc;
+    // 海までの近さ（マス数。8まで）
+    for (let i = 0; i < N; i++) dist[i] = h[i] <= sea ? 0 : 99;
+    for (let pass = 1; pass <= 8; pass++) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (dist[i] !== 99) continue;
+      if (dist[y * W + wrapX(x - 1)] === pass - 1 || dist[y * W + wrapX(x + 1)] === pass - 1 || (y > 0 && dist[i - W] === pass - 1) || (y < H - 1 && dist[i + W] === pass - 1)) dist[i] = pass; }
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x, e = h[i] - sea;
+      if (e <= 0 || w.lake[i] || y < 6 || y > H - 7) { scoreF[i] = 0; continue; }
+      const xl = y * W + wrapX(x - 1), xr = y * W + wrapX(x + 1), slope = Math.abs(h[xr] - h[xl]) + Math.abs(h[i + W] - h[i - W]);
+      const flat = 1 - smooth(0.02, 0.12, slope), low = 1 - smooth(0.12, 0.45, e), t = temp[i], warm = smooth(-2, 9, t) * (1 - 0.5 * smooth(27, 34, t));
+      let riv = 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const j = (y + dy) * W + wrapX(x + dx); if (acc[j] > riv) riv = acc[j]; }
+      const river = smooth(Math.log(CFG.riverMin * 0.6), Math.log(CFG.riverMin * 30), Math.log(riv + 1)), coast = dist[i] === 99 ? 0 : 1 - (dist[i] - 1) / 8;
+      const water = Math.max(river, coast * 0.75), fert = Math.max(smooth(0.16, 0.5, rain[i]), river * 0.85);
+      let ln = 0; for (let dy = -4; dy <= 4; dy += 2) for (let dx = -4; dx <= 4; dx += 2) if (h[(y + dy) * W + wrapX(x + dx)] > sea) ln++;      // まわりの陸の多さ（小さすぎる島は選ばない）
+      scoreF[i] = flat * low * warm * (0.25 + 0.75 * water) * (0.15 + 0.85 * fert) * smooth(6, 13, ln);
+    }
+    // ぼかして「このあたり一帯が良い」所を選ぶ
+    for (let pass = 0; pass < 2; pass++) { const a = pass ? scoreB : scoreF, b = pass ? scoreF : scoreB;
+      for (let y = 1; y < H - 1; y++) for (let x = 0; x < W; x++) { const i = y * W + x; b[i] = (a[i] * 4 + a[y * W + wrapX(x - 1)] + a[y * W + wrapX(x + 1)] + a[i - W] + a[i + W] + a[y * W + wrapX(x - 2)] + a[y * W + wrapX(x + 2)]) / 10 * (a[i] > 0 ? 1 : 0); } }
+  }
+  const far = (list, x, y, d) => list.every(m => { let dx = Math.abs(m.x - x); if (dx > W / 2) dx = W - dx; return dx * dx * lonScale(y) * lonScale(y) + (m.y - y) * (m.y - y) >= d * d; });
+  function marks(w) {
+    const h = w.hv, sea = w.seaV; habit(w);
+    const cities = []; let cap = null;
+    const pickBest = (minScore, d) => { let bi = -1, bs = minScore; for (let i = 0; i < N; i++) { const s = scoreF[i]; if (s > bs) { const x = i % W, y = (i - x) / W; if (far(cities, x, y, d)) { bs = s; bi = i; } } } return bi < 0 ? null : { x: bi % W, y: (bi - bi % W) / W, s: bs }; };
+    const first = pickBest(0.0005, 0);
+    if (first) { cap = first; cities.push(first); for (let k = 0; k < 5; k++) { const c = pickBest(Math.max(0.02, cap.s * 0.42), 30); if (!c) break; cities.push(c); } }
+    // 大きな山：高い所の頂上（はなれた3つまで）
+    const peaks = [];
+    for (let k = 0; k < 3; k++) { let bi = -1, bh = sea + CFG.mountainH + 0.12; for (let i = 0; i < N; i++) if (h[i] > bh) { const x = i % W, y = (i - x) / W; if (far(peaks, x, y, 34)) { bh = h[i]; bi = i; } } if (bi < 0) break; peaks.push({ x: bi % W, y: (bi - bi % W) / W, h: bh - sea }); }
+    // 砂漠：いちばん広い砂漠のまん中（はなれた2つまで）
+    const lab = new Int32Array(N), st = new Int32Array(N), ds = [];
+    for (let s = 0; s < N; s++) { if (lab[s] || biomeAt(w, s) !== B.DESERT) continue; let top = 0, ar = 0, sx = 0, sy = 0; const x0 = s % W; st[top++] = s; lab[s] = 1;
+      while (top) { const i = st[--top], x = i % W, y = (i - x) / W; let dx = x - x0; if (dx > W / 2) dx -= W; else if (dx < -W / 2) dx += W; ar++; sx += dx; sy += y;
+        const nb = [y * W + wrapX(x + 1), y * W + wrapX(x - 1), y > 0 ? i - W : -1, y < H - 1 ? i + W : -1]; for (const j of nb) if (j >= 0 && !lab[j] && biomeAt(w, j) === B.DESERT) { lab[j] = 1; st[top++] = j; } }
+      if (ar >= 260) ds.push({ x: wrapX(Math.round(x0 + sx / ar)), y: Math.round(sy / ar), area: ar }); }
+    ds.sort((a, b) => b.area - a.area);
+    const deserts = []; for (const d of ds) { if (deserts.length >= 2) break; if (far(deserts, d.x, d.y, 40)) deserts.push(d); }
+    return { capital: cap, cities: cities.slice(1), peaks, deserts };
+  }
+
+  /* ============================================================
+     「この地形なら、こうなるだろう」：人口の分布・国の分かれ方・その土地のくらし
+     （気温と雨は、もう計算してある数字 temp・rain をそのまま色にする）
+     ============================================================ */
+  const POP_UNIT = 0.0205, POP_LAND = 0.8;      // POP_UNIT＝世界の人口のめやす（億人）を出す時の係数。カードを使う前の地球が、今の本物の地球と同じくらい（80億人前後）になる値　POP_LAND＝ふつうの土地の人口の上限（栄えている所のまわりだけ、これより多くなる）
+  const LIFE = { NONE: 0, EMPTY: 1, RICE: 2, FIELD: 3, GRAZE: 4, FOREST: 5, FISH: 6, MINE: 7 };      // くらしの種類：海など｜人が少ない｜田んぼ｜畑｜放牧｜森｜漁（海）｜山
+  const NATION_MAX = 40, NATION_MIN = 0.35, NATION_GAP = 52;      // 国の数の上限｜国の中心になれる住みやすさ（いちばん栄えている所を1として）｜国の中心どうしの、最低のはなれ具合（マス）
+  const FOREST_POP = 0.3;                                         // 雨の多い土地で、人口がこれより少ない所は「森」のまま
+  /* 計算は3つに分けてある（画面では、少しずつ間をあけて計算して、動きが止まって見えないようにする）。layers(w) は3つをまとめて計算する */
+
+  /* ---- 人口：住みやすさを、いちばん栄えている所を1として表す。栄えている所のまわりは、とくに人が集まる ---- */
+  function layerPop(w) {
+    const m = w.marks || marks(w); habit(w);
+    const h = w.hv, sea = w.seaV, temp = w.temp, pop = new Float32Array(N), cap = m.capital, ref = cap ? Math.max(1e-4, cap.s) : 1; let total = 0;
+    if (cap) {
+      for (let i = 0; i < N; i++) pop[i] = scoreF[i] > 0 ? Math.min(1, scoreF[i] / ref) * POP_LAND : 0;
+      for (const c of [cap].concat(m.cities)) { const kx = lonScale(c.y), wt = c === cap ? 1 : 0.6 + 0.3 * Math.min(1, c.s / ref), R = 9;
+        for (let dy = -R; dy <= R; dy++) { const y = c.y + dy; if (y < 0 || y >= H) continue; for (let dx = -Math.ceil(R / kx); dx <= Math.ceil(R / kx); dx++) { const i = y * W + wrapX(c.x + dx); if (h[i] <= sea || w.lake[i] || temp[i] < CFG.iceT) continue;      // 海・湖・氷の上には住まない
+          const d2 = dx * dx * kx * kx + dy * dy, v = wt * Math.exp(-d2 / 18); if (v > pop[i]) pop[i] = v; } } }
+      for (let y = 0; y < H; y++) { const a = COSLAT[y], row = y * W; for (let x = 0; x < W; x++) { const v = pop[row + x]; if (v > 0) total += a * Math.pow(v, 1.6); } }
+    }
+    return { pop, people: total * POP_UNIT, score: scoreF.slice(), ref };      // score＝住みやすさ（国を分ける時に使う）
+  }
+
+  /* ---- 国：栄えている所や住みやすい所を中心に、近い順に土地を分けていく。山・氷・砂漠・大きな川・海は越えにくいので、国境になりやすい ---- */
+  function layerNation(w, P) {
+    P = P || layerPop(w);
+    const m = w.marks || marks(w), h = w.hv, sea = w.seaV, acc = w.acc, sc = P.score, ref = P.ref, cap = m.capital, nation = new Int16Array(N), seeds = cap ? [cap].concat(m.cities) : [];
+    if (cap) {      // 住みやすい所を、良い順に見ていき、ほかの国の中心から十分はなれていれば 新しい国の中心にする
+      const min = Math.max(0.004, ref * NATION_MIN), cand = []; for (let i = 0; i < N; i++) if (sc[i] > min) cand.push(i);
+      cand.sort((a, b) => sc[b] - sc[a] || a - b);
+      for (const i of cand) { if (seeds.length >= NATION_MAX) break; const x = i % W, y = (i - x) / W; if (far(seeds, x, y, NATION_GAP)) seeds.push({ x, y, s: sc[i] }); }
+    }
+    const own = new Int16Array(N), hard = new Float32Array(N), LIMIT = 95, CAP = sk.length, tag = ++closeN; let hn = 0;
+    const push = (k, i) => { if (hn >= CAP) return; let c = hn++; while (c > 0) { const p = (c - 1) >> 1; if (sk[p] <= k) break; sk[c] = sk[p]; si[c] = si[p]; c = p; } sk[c] = k; si[c] = i; };
+    const pop1 = () => { const top = si[0], k = sk[--hn], i = si[hn]; let c = 0; for (;;) { let l = c * 2 + 1; if (l >= hn) break; if (l + 1 < hn && sk[l + 1] < sk[l]) l++; if (sk[l] >= k) break; sk[c] = sk[l]; si[c] = si[l]; c = l; } sk[c] = k; si[c] = i; return top; };
+    for (let i = 0; i < N; i++) { const e = h[i] - sea; let mul;      // そのマスの「越えにくさ」
+      if (e <= 0) mul = 7;                                                           // 海をわたるのは大変（せまい海峡なら、向こう岸も同じ国になる）
+      else { mul = 1 + 26 * Math.max(0, e - 0.1); const b = biomeAt(w, i); if (b === B.ICE) mul += 4; else if (b === B.DESERT) mul += 1.2; else if (b === B.LAKE) mul += 2; if (acc[i] >= CFG.riverMin * 12) mul += 2.5; }
+      hard[i] = mul; }
+    cost.fill(1e9); seeds.forEach((sd, k) => { const i = sd.y * W + sd.x; cost[i] = 0; own[i] = k + 1; push(0, i); });
+    while (hn) {
+      const c = pop1(); if (closed[c] === tag) continue; closed[c] = tag;
+      const x = c % W, y = (c - x) / W, kx = lonScale(y), cc = cost[c], id = own[c];
+      for (let dy = -1; dy <= 1; dy++) { const yy = y + dy; if (yy < 0 || yy >= H) continue;
+        for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const j = yy * W + wrapX(x + dx); if (closed[j] === tag) continue;
+          const nc = Math.fround(cc + (dx ? dy ? Math.sqrt(kx * kx + 1) : kx : 1) * hard[j]); if (nc < cost[j] && nc <= LIMIT) { cost[j] = nc; own[j] = id; push(nc, j); } } }
+    }
+    const size = new Int32Array(seeds.length + 1); for (let i = 0; i < N; i++) { if (h[i] <= sea) nation[i] = -1; else { nation[i] = closed[i] === tag ? own[i] : 0; size[nation[i]]++; } }      // −1＝海　0＝だれの国でもない土地　1〜＝国の番号
+    // となり合う国が同じ色にならないように、色の番号（0〜6）をふる
+    const adj = seeds.map(() => new Set());
+    for (let y = 0; y < H - 1; y++) for (let x = 0; x < W; x++) { const i = y * W + x, a = nation[i]; if (a <= 0) continue; let b = nation[y * W + wrapX(x + 1)]; if (b > 0 && b !== a) { adj[a - 1].add(b); adj[b - 1].add(a); } b = nation[i + W]; if (b > 0 && b !== a) { adj[a - 1].add(b); adj[b - 1].add(a); } }
+    const color = new Int8Array(seeds.length + 1).fill(-1), order = seeds.map((_, k) => k + 1).sort((a, b) => size[b] - size[a]);
+    for (const id of order) { const used = new Set(); adj[id - 1].forEach(b => { if (color[b] >= 0) used.add(color[b]); }); let c = (id * 3) % 7, n = 0; while (used.has(c) && n < 7) { c = (c + 1) % 7; n++; } color[id] = c; }      // 7色を まんべんなく使う
+    let nations = 0; for (let k = 1; k <= seeds.length; k++) if (size[k] >= 8) nations++;
+    return { nation, color, nations, seeds };
+  }
+
+  /* ---- くらし：気温・雨・地形（と人口）から、その土地で何をして くらしていそうか ---- */
+  function layerLife(w, P) {
+    P = P || layerPop(w);
+    const h = w.hv, sea = w.seaV, rain = w.rain, temp = w.temp, acc = w.acc, pop = P.pop, life = new Uint8Array(N);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x, e = h[i] - sea, t = temp[i];
+      if (e <= 0) { life[i] = e > -0.07 && t > CFG.seaIceT + 1.5 ? LIFE.FISH : LIFE.NONE; continue; }      // 陸に近い浅い海は、漁場
+      const b = biomeAt(w, i); if (b === B.LAKE) { life[i] = LIFE.NONE; continue; }
+      if (b === B.ICE) { life[i] = LIFE.EMPTY; continue; } if (b === B.MOUNT || e > 0.46) { life[i] = LIFE.MINE; continue; }      // 高い山：鉱山や山の村
+      const r = rain[i], yu = y > 0 ? i - W : i, yd = y < H - 1 ? i + W : i, slope = Math.abs(h[y * W + wrapX(x + 1)] - h[y * W + wrapX(x - 1)]) + Math.abs(h[yd] - h[yu]), river = acc[i] >= CFG.riverMin * 2;
+      if (b === B.DESERT) life[i] = river ? LIFE.FIELD : r < 0.1 ? LIFE.EMPTY : LIFE.GRAZE;                // 砂漠：川ぞいはオアシスの畑、あとは遊牧か、ほぼ無人
+      else if (b === B.TUNDRA) life[i] = LIFE.GRAZE;                                                       // 寒い土地：トナカイなどの放牧
+      else if (b === B.STEPPE) life[i] = (river || r > 0.3) && t > 6 && slope < 0.09 ? LIFE.FIELD : LIFE.GRAZE;
+      else if (slope > 0.1 || e > 0.36 || t < 5) life[i] = LIFE.FOREST;                                    // 緑の土地でも、けわしい所・高い所・寒い所は森のまま
+      else if (r > 0.5 && pop[i] < FOREST_POP && !river) life[i] = LIFE.FOREST;                            // 雨が多くて人が少ない所は、森が残る
+      else life[i] = t >= 17 && (r >= 0.5 || river) && e < 0.22 ? LIFE.RICE : r > 0.78 && t > 23 ? LIFE.FOREST : LIFE.FIELD;      // 暖かくて水が多い低地は田んぼ。雨が多すぎる暑い所は密林
+    }
+    return life;
+  }
+  function layers(w) { const P = layerPop(w), Nn = layerNation(w, P); return { pop: P.pop, people: P.people, nation: Nn.nation, color: Nn.color, nations: Nn.nations, seeds: Nn.seeds, life: layerLife(w, P) }; }
+
+  return { W, H, N, CFG, B, LIFE, LAT, COSLAT, SINLAT, rng, clamp, lerp, smooth, wrapX, lonScale, makeNoise, newWorld, update, finish, syncView, climate, hydro, stats, marks, layers, layerPop, layerNation, layerLife, biomeAt, continents, newRiver, routeRiver };
+})();
+
+/* ============================================================
+   出来事カード（10種類）。タップした場所、または指でなぞった線にそって、地形・雨・海面・気温を変える。
+   make(w, id, gx, gy, { stroke }) で「出来事」を作り、ev.apply(t) で t=0→1 の途中の姿を見せ、commit(w, ev) で確定する。
+   stroke＝なぞった線（[{x,y}] マス）。なければ (gx,gy) をタップした時の形になる。
+   なぞった時は「同じ量を、線の形にのばす」考え方：長くなぞるほど、細く（せまく）なる。
+   ・大陸衝突・大陸分裂：短い線（64マス未満）は、向きはそのままで両はしをのばす（stretch）
+   ・大河誕生：線が川の道すじになる。短い線は、向きのまま先へのばして「大河」の長さにする（しくみは world.js の drawnRiver）
+   ・火山噴火・隕石はタップだけ。氷河期・温暖化は世界ぜんたい
+   ============================================================ */
+const CARDS = (() => {
+  const E = typeof EARTH !== 'undefined' ? EARTH : require('./world.js');
+  const { W, H, N, CFG, COSLAT, clamp, smooth, wrapX, lonScale } = E, PI = Math.PI;
+
+  /* ---------- カードの一覧（name＝名前　desc＝起きること　place＝場所をえらぶか　draw＝なぞって形を描けるか） ---------- */
+  const LIST = [
+    { id: 'collide', name: '大陸衝突', desc: '陸と陸がぶつかり、山脈ができる', place: true, draw: true },
+    { id: 'rift', name: '大陸分裂', desc: '陸が裂けて、あいだに海ができる', place: true, draw: true },
+    { id: 'volcano', name: '火山噴火', desc: '火山や島ができ、土が肥える', place: true },
+    { id: 'uplift', name: '地殻隆起', desc: '陸は高原に、海は新しい陸になる', place: true, draw: true },
+    { id: 'meteor', name: '隕石', desc: 'クレーターと湖ができる', place: true },
+    { id: 'iceage', name: '氷河期', desc: '海面が下がり、寒い所が凍る', place: false },
+    { id: 'warming', name: '温暖化', desc: '海面が上がり、低い土地が沈む', place: false },
+    { id: 'rain', name: '大雨', desc: '川や湖が増え、緑が広がる', place: true, draw: true },
+    { id: 'drought', name: '干ばつ', desc: '乾いて、砂漠が広がる', place: true, draw: true },
+    { id: 'river', name: '大河誕生', desc: '大きな川ができ、流域が栄える', place: true, draw: true },
+  ];
+  /* ---------- 効く広さと強さ（ここを書き換えると調整できます。広さの単位は地図のマス。地図は横512マス） ---------- */
+  const P = {
+    collide: { R: 74, L: 62, pull: 17, height: 1.2, max: 170 },   // R＝引き寄せる幅　L＝タップした時の山脈の長さ（半分）　pull＝陸が寄る量　height＝山の高さ　max＝なぞれる長さの上限
+    rift: { R: 70, L: 60, gap: 13, isles: 0.06, max: 190 },       // L＝タップした時の裂け目の長さ（半分）　gap＝できる海の幅の半分　isles＝新しい海に残る小島の多さ（小さいほど多い）
+    volcano: { R: 16, height: 0.66 },
+    uplift: { R: 40, height: 0.45, land: 0.14, max: 170 },        // land＝海の上に使った時にできる新しい陸の高さ（低くてなだらかな平野になる）
+    meteor: { R: 12, depth: 0.3, rim: 0.17, waste: 0.28 },        // waste＝まわりが荒れる強さ
+    iceage: { land: 0.16, temp: -6.5 },                           // land＝陸の広さがどれだけ変わるか（今の陸に対する割合）　temp＝気温の変化（度）
+    warming: { land: -0.14, temp: 6 },
+    rain: { R: 60, amount: 0.46, max: 220 },
+    drought: { R: 58, amount: -0.5, max: 220 },
+    river: { flow: 900, max: 180 },                               // flow＝水の量（川の太さ）
+  };
+  const TAP = 10;                 // なぞった長さがこれより短い時は、タップとして扱う（マス）
+  const RIVER_MIN = 12;                // 川の長さがこれより短い時は、川にならない（画面のほうで、使う前に知らせる）
+  const byId = {}; LIST.forEach(c => { byId[c.id] = c; });
+  const ease = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+  function sampleH(src, x, y) {       // 途中の位置の高さ（左右はつながる・上下は端で止める）
+    let x0 = Math.floor(x), y0 = Math.floor(y), fy = y - y0; const fx = x - x0;
+    if (y0 < 0) { y0 = 0; fy = 0; } else if (y0 >= H - 1) { y0 = H - 1; fy = 0; }
+    x0 %= W; if (x0 < 0) x0 += W; const x1 = x0 + 1 === W ? 0 : x0 + 1, r0 = y0 * W, r1 = fy > 0 ? r0 + W : r0;
+    const a = src[r0 + x0], b = src[r0 + x1], c = src[r1 + x0], d = src[r1 + x1];
+    return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+  }
+  function axisAt(w, cx, cy, R) {     // まわりの陸が「どの向きに長く広がっているか」（タップした時の、衝突・分裂の向きを決める）
+    const kx = lonScale(cy), bx = Math.ceil(R / kx); let sxx = 0, sxy = 0, syy = 0, n = 0;
+    for (let dy = -R; dy <= R; dy += 2) { const y = Math.round(cy) + dy; if (y < 0 || y >= H) continue;
+      for (let dx = -bx; dx <= bx; dx += 2) { const ex = dx * kx; if (ex * ex + dy * dy > R * R) continue; if (w.h[y * W + wrapX(Math.round(cx) + dx)] > w.sea) { sxx += ex * ex; sxy += ex * dy; syy += dy * dy; n++; } } }
+    return n < 14 ? 0 : 0.5 * Math.atan2(2 * sxy, sxx - syy);
+  }
+  function nearestLand(w, cx, cy, maxR) {   // いちばん近い陸のマス（海をタップした時用）
+    cx = Math.round(cx); cy = clamp(Math.round(cy), 0, H - 1);
+    if (w.h[cy * W + wrapX(cx)] > w.sea) return { x: wrapX(cx), y: cy };
+    const kx = lonScale(cy); let best = null, bd = 1e9;
+    for (let dy = -maxR; dy <= maxR; dy++) { const y = cy + dy; if (y < 0 || y >= H) continue; for (let dx = -Math.ceil(maxR / kx); dx <= Math.ceil(maxR / kx); dx++) { const d = dx * dx * kx * kx + dy * dy; if (d < bd && d <= maxR * maxR && w.h[y * W + wrapX(cx + dx)] > w.sea) { bd = d; best = { x: wrapX(cx + dx), y }; } } }
+    return best;
+  }
+  /* タップした場所のまわりの四角い範囲を1マスずつ回す。fn(マスの番号, 横のずれ(マス), ex, ey)  ※ ex,ey は「地球儀で見た時の距離」に直したずれ */
+  function around(cx, cy, rx, ry, fn) {
+    const kx = lonScale(cy), bx = Math.min(W / 2 - 1, Math.ceil(rx / kx)), y0 = Math.max(0, Math.floor(cy - ry)), y1 = Math.min(H - 1, Math.ceil(cy + ry)), cxi = Math.round(cx);
+    for (let y = y0; y <= y1; y++) for (let dx = -bx; dx <= bx; dx++) fn(y * W + wrapX(cxi + dx), cxi + dx, (cxi + dx - cx) * kx, y - cy, y);
+    return kx;
+  }
+
+  /* ============================================================
+     なぞった線のあつかい
+     ============================================================ */
+  const segLen = (a, b) => Math.hypot((b.x - a.x) * lonScale((a.y + b.y) / 2), b.y - a.y);     // 2点の間の長さ（地球儀で見た時の長さ。マス）
+  function strokeLen(pts) { let s = 0; for (let i = 1; i < pts.length; i++) s += segLen(pts[i - 1], pts[i]); return s; }
+  /* 線を作る。e＝折れ線（最初の点を原点にして、地球儀で見た時の距離に直したもの）　cum＝各点までの長さ　len＝全体の長さ */
+  function lineOf(e, kx, x0, y0) { const cum = [0]; for (let i = 1; i < e.length; i++) cum.push(cum[i - 1] + Math.hypot(e[i][0] - e[i - 1][0], e[i][1] - e[i - 1][1])); return { e, cum, len: cum[cum.length - 1], kx, x0, y0 }; }
+  const pointLine = (gx, gy) => lineOf([[0, 0]], lonScale(gy), gx, gy);
+  /* なぞった線を、上限の長さで切り、等間隔に取り直して、少しなめらかにする */
+  function tidy(pts, maxLen) {
+    let my = 0; for (const p of pts) my += p.y; my /= pts.length;
+    const kx = lonScale(my), x0 = pts[0].x, y0 = pts[0].y, raw = pts.map(p => [(p.x - x0) * kx, p.y - y0]), L0 = lineOf(raw, kx, x0, y0), len = Math.min(L0.len, maxLen);
+    const n = Math.max(2, Math.min(28, Math.round(len / 5))), e = []; let j = 0;
+    for (let k = 0; k <= n; k++) { const d = len * k / n; while (j < raw.length - 2 && L0.cum[j + 1] < d) j++; const sl = L0.cum[j + 1] - L0.cum[j], t = sl > 1e-9 ? clamp((d - L0.cum[j]) / sl, 0, 1) : 0; e.push([raw[j][0] + (raw[j + 1][0] - raw[j][0]) * t, raw[j][1] + (raw[j + 1][1] - raw[j][1]) * t]); }
+    for (let pass = 0; pass < 2; pass++) { const c = e.map(p => p.slice()); for (let k = 1; k < e.length - 1; k++) { e[k][0] = (c[k - 1][0] + 2 * c[k][0] + c[k + 1][0]) / 4; e[k][1] = (c[k - 1][1] + 2 * c[k][1] + c[k + 1][1]) / 4; } }
+    return lineOf(e, kx, x0, y0);
+  }
+  const toGrid = (L, k) => ({ x: L.x0 + L.e[k][0] / L.kx, y: L.y0 + L.e[k][1] });                 // 線の上の点を、地図のマスにもどす
+  /* 線のまわり（距離 R まで）のマスを1つずつ回す。fn(マス番号, xg, y, d, nx, ny, q, side)
+     d＝線までの距離　(nx,ny)＝線からそのマスへ向かう向き（長さ1）　q＝線にそった位置（始点から）　side＝線のどちら側か（±1） */
+  function band(L, R, fn) {
+    const e = L.e, n = e.length, kx = L.kx, x0 = L.x0, y0 = L.y0, R2 = R * R;
+    let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9; for (const p of e) { if (p[0] < minx) minx = p[0]; if (p[0] > maxx) maxx = p[0]; if (p[1] < miny) miny = p[1]; if (p[1] > maxy) maxy = p[1]; }
+    const gx0 = Math.floor(x0 + (minx - R) / kx), gx1 = Math.ceil(x0 + (maxx + R) / kx), gy0 = Math.max(0, Math.floor(y0 + miny - R)), gy1 = Math.min(H - 1, Math.ceil(y0 + maxy + R)), span = Math.min(gx1 - gx0, W - 1);
+    const m = n - 1, ax = new Float64Array(Math.max(1, m)), ay = new Float64Array(Math.max(1, m)), dx = new Float64Array(Math.max(1, m)), dy = new Float64Array(Math.max(1, m)), l2 = new Float64Array(Math.max(1, m)), ln = new Float64Array(Math.max(1, m));
+    for (let j = 0; j < m; j++) { ax[j] = e[j][0]; ay[j] = e[j][1]; dx[j] = e[j + 1][0] - e[j][0]; dy[j] = e[j + 1][1] - e[j][1]; l2[j] = Math.max(1e-9, dx[j] * dx[j] + dy[j] * dy[j]); ln[j] = Math.sqrt(l2[j]); }
+    for (let y = gy0; y <= gy1; y++) { const py = y - y0;
+      for (let k = 0; k <= span; k++) { const xg = gx0 + k, px = (xg - x0) * kx; let bd = R2, bj = -1, bt = 0;
+        if (m === 0) { const ex = px - e[0][0], ey = py - e[0][1], d2 = ex * ex + ey * ey; if (d2 < bd) { bd = d2; bj = 0; } }
+        else for (let j = 0; j < m; j++) { const vx = px - ax[j], vy = py - ay[j]; let t = (vx * dx[j] + vy * dy[j]) / l2[j]; t = t < 0 ? 0 : t > 1 ? 1 : t; const ex = vx - t * dx[j], ey = vy - t * dy[j], d2 = ex * ex + ey * ey; if (d2 < bd) { bd = d2; bj = j; bt = t; } }
+        if (bj < 0) continue;
+        const d = Math.sqrt(bd); let nx = 1, ny = 0, q = 0, side = 1;
+        if (m === 0) { if (d > 1e-6) { nx = (px - e[0][0]) / d; ny = (py - e[0][1]) / d; } }
+        else { const cx = ax[bj] + bt * dx[bj], cy = ay[bj] + bt * dy[bj]; side = dx[bj] * (py - cy) - dy[bj] * (px - cx) < 0 ? -1 : 1;
+          if (d > 1e-6) { nx = (px - cx) / d; ny = (py - cy) / d; } else { nx = -dy[bj] / ln[bj]; ny = dx[bj] / ln[bj]; }
+          q = L.cum[bj] + bt * ln[bj]; }
+        fn(y * W + wrapX(xg), xg, y, d, nx, ny, q, side);
+      } }
+  }
+  /* 衝突・分裂：短くなぞった時は、線の向きのまま両はしをのばして、この長さにする（短いままだと、線と直角の向きに長い形になってしまうため） */
+  const MIN_LEN = { collide: 64, rift: 64 };
+  function stretch(id, pts) {
+    const m = MIN_LEN[id], len = m ? strokeLen(pts) : 0; if (!m || len >= m || len < TAP) return pts;
+    const a = pts[0], b = pts[pts.length - 1], kx = lonScale((a.y + b.y) / 2); let ex = (b.x - a.x) * kx, ey = b.y - a.y; const l = Math.hypot(ex, ey); if (l < 3) return pts;      // 輪のように なぞった時は、向きが決まらないので そのまま
+    ex /= l; ey /= l; const add = (m - len) / 2;
+    return [{ x: a.x - ex * add / kx, y: a.y - ey * add }].concat(pts, [{ x: b.x + ex * add / kx, y: b.y + ey * add }]);
+  }
+  /* なぞった長さから、できる形の太さを決める（同じ量をのばすので、長いほど細い）。half＝見た目の幅の半分（マス） */
+  const RIFT_AREA = 2 * P.rift.gap * P.rift.L * 1.178, COLLIDE_EFF = P.collide.L * 1.178;          // タップした時の「海の広さ」「山脈の長さ」（これと同じ量になるようにする）
+  const taperLen = len => Math.min(0.35 * len, 28);                                              // 両はしで細くなっていく部分の長さ
+  function shape(id, len) {
+    const p = P[id], drawn = len >= TAP; if (drawn && MIN_LEN[id] && len < MIN_LEN[id]) len = MIN_LEN[id];
+    const eff = Math.max(20, len - taperLen(len));
+    if (id === 'rift') { const gap = drawn ? clamp(RIFT_AREA / (2 * eff), 6, 22) : p.gap; return { gap, half: gap }; }
+    if (id === 'collide') { const k = drawn ? clamp(COLLIDE_EFF / eff, 0.6, 1.8) : 1; return { k, half: 9 * k }; }
+    if (id === 'uplift') { const c1 = 1.5, c2 = 1.806, r = drawn ? clamp((-c1 * len + Math.sqrt(c1 * c1 * len * len + 4 * c2 * c2 * p.R * p.R)) / (2 * c2), 11, p.R) : p.R; return { r, half: r * 0.86 }; }      // 持ち上がる土の量（高さ×広さ）が、タップの時と同じになる太さ
+    if (id === 'rain' || id === 'drought') { const c1 = 1.5853, c2 = 2.5133, A = c2 * p.R * p.R, r = drawn ? clamp((-c1 * len + Math.sqrt(c1 * c1 * len * len + 4 * c2 * A)) / (2 * c2), 18, p.R) : p.R; return { r, half: r }; }
+    return { half: 1.5 };
+  }
+  /* なぞった線の近くに陸があるか（何も起きない場所では使わせないため） */
+  function touchesLand(w, pts, dist) {
+    const step = Math.max(3, dist * 0.8);                 // 点と点の間があいていても、とちゅうの陸を見落とさないように、細かく刻んで調べる
+    for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[Math.min(i + 1, pts.length - 1)], n = Math.max(1, Math.ceil(segLen(a, b) / step));
+      for (let k = 0; k < n; k++) if (nearestLand(w, a.x + (b.x - a.x) * k / n, a.y + (b.y - a.y) * k / n, dist)) return true; }
+    return false;
+  }
+
+  /* 氷河期・温暖化：陸の広さが frac（＋なら広がる・−ならせばまる）だけ変わるように、海面を動かす量を決める */
+  function seaStep(w, frac) {
+    const h = w.h, sea = w.sea, BINS = 500, MAXD = 0.1, hist = new Float64Array(BINS), up = frac < 0; let land = 0;
+    for (let y = 0; y < H; y++) { const a = COSLAT[y], row = y * W; for (let x = 0; x < W; x++) { const e = h[row + x] - sea; if (e > 0) land += a; const d = up ? e : -e; if (d > 0 && d < MAXD) hist[(d / MAXD * BINS) | 0] += a; } }
+    const need = Math.abs(frac) * land; let sum = 0, k = 0; while (k < BINS - 1 && sum + hist[k] < need) sum += hist[k++];
+    const step = clamp((k + 1) / BINS * MAXD, 0.003, 0.034), ns = clamp(sea + (up ? step : -step), -0.085, 0.16);     // 動かしすぎない（海面は −0.085〜0.16 の間）
+    return ns - sea;
+  }
+
+  function make(w, id, gx, gy, opt) {
+    opt = opt || {}; const p = P[id], h = w.h, hv = w.hv, rv = w.rv, radj = w.radj, nz = w.noise, def = byId[id];
+    const raw = def.draw && opt.stroke && opt.stroke.length > 1 && strokeLen(opt.stroke) >= TAP ? opt.stroke : null;      // なぞった線（短すぎる時はタップと同じ）
+    const ev = { id, x: gx, y: gy, place: def.place, R: p.R || 0, path: null, drawn: !!raw, pts: null, rad: 0 };
+    const base = () => { hv.set(h); rv.set(radj); w.seaV = w.sea; w.toffV = w.toff; };
+    const so = (gx * 0.37 + gy * 0.91) % 97;                                                    // 場所ごとにちがう「ゆらぎ」
+    /* なぞった時は、始点から終点へ順に変わっていく（t は 0→1 のまっすぐな時間）。タップの時は、全体がいっしょに変わる（t はなめらかにした時間） */
+    const local = raw ? (t, qn) => { const u = t * 1.6 - 0.6 * qn; return u <= 0 ? 0 : u >= 1 ? 1 : ease(u); } : t => t;
+    const keep = L => { ev.pts = L.e.map((_, k) => toGrid(L, k)); };                           // 画面の演出用に、線の形を覚えておく
+
+    if (id === 'collide' || id === 'rift') {
+      let L, wvOf, sh0;
+      if (raw) { L = tidy(stretch(id, raw), p.max); sh0 = shape(id, Math.max(TAP, L.len)); const T = taperLen(L.len); wvOf = q => smooth(0, 1, Math.min(q, L.len - q) / T); }      // 太さはほぼ同じで、両はしだけ細くなる
+      else {
+        if (id === 'rift') { const nl = nearestLand(w, gx, gy, 60); if (nl) { gx = ev.x = nl.x; gy = ev.y = nl.y; } }
+        const ang = opt.angle != null ? opt.angle : axisAt(w, gx, gy, 70); ev.angle = ang;      // u＝陸が動く向き　v＝山脈（裂け目）がのびる向き
+        const ux = Math.cos(ang), uy = Math.sin(ang), vx = -uy, vy = ux, Q = p.L, e = [];
+        const bend = q => 7 * nz.n3(q * 0.045 + so, 1.7, 3.3) + 2.5 * nz.n3(q * 0.14, so, 5.1);   // 線がまっすぐになりすぎないように、くねらせる
+        for (let q = -Q; q <= Q + 0.01; q += 4) { const a = q / Q, b = bend(q) * (a * a >= 1 ? 0 : Math.pow(1 - a * a, 1.5)); e.push([vx * q + ux * b, vy * q + uy * b]); }
+        L = lineOf(e, lonScale(gy), gx, gy); wvOf = q => { const a = 2 * q / L.len - 1; return a * a >= 1 ? 0 : Math.pow(1 - a * a, 1.5); };     // 線のまん中で太く、両はしで0
+        sh0 = shape(id, 0);
+      }
+      keep(L); ev.rad = sh0.half;
+      // 動く範囲のマスと、そこでの強さを先に計算しておく（途中の姿を何度も作るので、ここを軽くする）
+      const ci = [], ca = [], cnx = [], cny = [], cw = [], cj = [], cxg = [], cyy = [], cf = [], cq = [], k = sh0.k || 1, gap = sh0.gap || p.gap, R = p.R;
+      band(L, R, (i, xg, y, d, nx, ny, q, side) => {
+        const wv = wvOf(q); if (wv <= 0.001) return; const s = d * side;
+        ci.push(i); ca.push(d); cnx.push(nx / L.kx); cny.push(ny); cw.push(wv); cxg.push(xg); cyy.push(y); cq.push(L.len > 0 ? q / L.len : 0);
+        if (id === 'rift') { cf.push(h[i] > w.sea ? smooth(p.isles, p.isles + 0.14, nz.n3(xg * 0.15, y * 0.15, so + 31.7)) : 0);        // 小島になって残る所（もとが陸の所だけ）
+          cj.push((0.8 + 0.45 * nz.n3(q * 0.06, so, 9.3)) * (1 + 0.24 * nz.n3(xg * L.kx * 0.085, y * 0.085, so + 3.1))); }              // 裂け目の幅のゆらぎ（岸ごとにちがうでこぼこ）
+        else cj.push((Math.exp(-(d / (7 * k)) * (d / (7 * k))) + 0.3 * Math.exp(-(d / (19 * k)) * (d / (19 * k)))) * (0.78 + 0.5 * (1 - Math.abs(nz.n3(q * 0.075 + so, s * 0.075, 7.7)) * 2) + 0.2 * nz.n3(q * 0.21, s * 0.21, so)));   // 山脈の形とでこぼこ
+      });
+      const nC = ci.length, pull = raw ? p.pull * clamp((L.len - taperLen(L.len)) / COLLIDE_EFF, 0.2, 1) : p.pull;      // 短くなぞった時は、陸を寄せる量をへらす（せまい帯だけが大きく動くと、地形が引きのばされて見えるため）
+      if (id === 'collide') ev.apply = t => { base(); const sea = w.sea;
+        for (let m = 0; m < nC; m++) { const tt = local(t, cq[m]); if (tt <= 0) continue;
+          const a = ca[m], wv = cw[m], sh = pull * wv * Math.sin(PI * a / R) * tt;
+          const hw = sampleH(h, cxg[m] + cnx[m] * sh, cyy[m] + cny[m] * sh);                           // 両側の陸が、線へ寄ってくる
+          hv[ci[m]] = hw + tt * p.height * wv * cj[m] * (0.55 + 0.45 * smooth(-0.5, -0.04, hw - sea));
+        } };
+      else ev.apply = t => { base(); const sea = w.sea;
+        for (let m = 0; m < nC; m++) { const g = gap * cw[m] * local(t, cq[m]) * cj[m]; if (g < 0.02) continue;
+          const a = ca[m], mv = (a - g) / (1 - g / R) - a;                                             // 両側の陸が、線から離れていく
+          const hs = sampleH(h, cxg[m] + mv * cnx[m], cyy[m] + mv * cny[m]), i = ci[m];
+          if (a <= g) { const c = a / g; let v = Math.min(hs, sea - 0.03 - 0.4 * Math.pow(1 - c * c, 0.7) * smooth(0, 6, g));      // あいだにできた新しい海
+            const isle = cf[m] * (1 - smooth(0.6, 0.9, c)) * smooth(5, 9, g); if (isle > 0) { const top = sea + 0.016 + 0.1 * isle; if (top > v) v += (top - v) * Math.min(1, isle * 1.6); }                       // ちぎれて残った小島
+            hv[i] = v; }
+          else { const edge = a - g, sh = hs > sea ? 0.08 * Math.exp(-(edge / 5) * (edge / 5)) * smooth(0, 5, g) : 0, kk = smooth(-0.6, 2.2, edge); hv[i] = (hs + sh) * kk + Math.min(hs, sea - 0.02) * (1 - kk); }
+        } };
+    } else if (id === 'volcano') ev.apply = t => { base(); const sea = w.sea, R = p.R;
+      around(gx, gy, R * 2.6, R * 2.6, (i, xg, ex, ey) => {
+        const r = Math.hypot(ex, ey), a = r / R;
+        if (a < 1) { const cone = sea - 0.12 + 0.92 * Math.pow(1 - a, 1.35), add = h[i] + p.height * Math.pow(1 - a, 1.6); let tg = add > cone ? add : cone; if (a < 0.1) tg -= 0.06 * (1 - a / 0.1); hv[i] = h[i] + t * (tg - h[i]); }
+        if (a < 2.6) rv[i] = radj[i] + t * 0.2 * Math.exp(-(a / 1.7) * (a / 1.7)) * smooth(0.45, 0.9, a);       // ふもとは土が肥えて、緑になりやすい
+      }); };
+    else if (id === 'uplift') {
+      const L = raw ? tidy(raw, p.max) : pointLine(gx, gy), r = shape(id, raw ? L.len : 0).r, ci = [], cwt = [], cnz = [], cq = []; keep(L); ev.rad = r;
+      band(L, r * 1.4, (i, xg, y, d, nx, ny, q) => {
+        const a = d / r * (1 + 0.3 * nz.n3(xg * L.kx * 0.045, y * 0.045, so + 4.4) + 0.15 * nz.n3(xg * L.kx * 0.13, y * 0.13, so + 8.1)); if (a >= 1) return;      // ふちをでこぼこにする（まん丸や まっすぐな海岸にならないように）
+        ci.push(i); cwt.push(1 - smooth(0.5, 1, a)); cnz.push(0.85 + 0.3 * nz.n3(xg * L.kx * 0.12, y * 0.12, 2.2)); cq.push(L.len > 0 ? q / L.len : 0); });
+      const nC = ci.length;
+      ev.apply = t => { base(); const sea = w.sea;
+        for (let m = 0; m < nC; m++) { const tt = local(t, cq[m]); if (tt <= 0) continue; const i = ci[m], wt = cwt[m], h0 = h[i];
+          let tg = h0 + p.height * wt * cnz[m];                                                                       // 陸の上：持ち上がって高原になる
+          if (h0 <= sea) { const up = h0 + (sea - 0.05 + (0.05 + p.land) * Math.pow(wt, 0.9) * cnz[m] - h0) * smooth(0, 0.3, wt); if (up > tg) tg = up; }   // 海の上：海面の上まで持ち上がって、新しい陸（低い平野）になる
+          hv[i] = h0 + tt * (tg - h0); } };
+    } else if (id === 'meteor') ev.apply = t => { base(); const R = p.R;
+      around(gx, gy, R * 2.7, R * 2.7, (i, xg, ex, ey) => {
+        const a = Math.hypot(ex, ey) / R; if (a >= 2.7) return;
+        const bowl = a < 1 ? -p.depth * Math.pow(1 - a * a, 1.3) : 0, rim = p.rim * Math.exp(-((a - 1) / 0.2) * ((a - 1) / 0.2)), peak = 0.07 * Math.exp(-(a / 0.16) * (a / 0.16));
+        hv[i] = h[i] + t * (bowl + rim + peak); rv[i] = radj[i] - t * p.waste * Math.exp(-(a / 2.2) * (a / 2.2)) * (a > 0.9 ? 1 : 0.5);
+      }); };
+    else if (id === 'iceage' || id === 'warming') { const dSea = seaStep(w, p.land); ev.apply = t => { base(); w.seaV = w.sea + dSea * t; w.toffV = clamp(w.toff + p.temp * t, -20, 14); }; }
+    else if (id === 'rain' || id === 'drought') {
+      const L = raw ? tidy(raw, p.max) : pointLine(gx, gy), r = shape(id, raw ? L.len : 0).r, ci = [], cwt = [], cq = []; keep(L); ev.rad = r;
+      band(L, r * 1.8, (i, xg, y, d, nx, ny, q) => { const a2 = d * d / (r * r); if (a2 >= 3.3) return; ci.push(i); cwt.push(Math.exp(-a2 * 1.25)); cq.push(L.len > 0 ? q / L.len : 0); });
+      const nC = ci.length;
+      ev.apply = t => { base(); for (let m = 0; m < nC; m++) { const tt = local(t, cq[m]); if (tt > 0) rv[ci[m]] = radj[ci[m]] + tt * p.amount * cwt[m]; } };
+    } else if (id === 'river') {
+      let rv0 = null;
+      if (raw) {            // なぞった道すじ：陸の上の点を順につないで流し、最後は海へ
+        const L = tidy(raw, p.max), way = L.e.map((_, k) => { const g = toGrid(L, k); return { x: wrapX(Math.round(g.x)), y: clamp(Math.round(g.y), 0, H - 1) }; }); keep(L);
+        rv0 = E.newRiver(w, 0, 0, p.flow, way);
+      }
+      if (!rv0) { let src = nearestLand(w, gx, gy, 80); if (!src && raw) for (const q of raw) { src = nearestLand(w, q.x, q.y, 45); if (src) break; }      // なぞった線が海の上だけなら、近くの陸を水源にする
+        rv0 = src ? E.newRiver(w, src.x, src.y, p.flow) : null; }
+      if (rv0) { ev.x = rv0.sx; ev.y = rv0.sy; }
+      ev.river = rv0; ev.path = rv0 ? rv0.path.map(i => ({ x: i % W, y: (i - i % W) / W })) : [];
+      ev.apply = t => { base(); ev.shown = Math.ceil(ev.path.length * t); };       // 地形は変えない。川が水源から海へのびていく（描くのは絵のほう）
+    }
+    return ev;
+  }
+  function commit(w, ev) {
+    ev.apply(1); w.h.set(w.hv); w.radj.set(w.rv); w.sea = w.seaV; w.toff = w.toffV;
+    if (ev.id === 'volcano') w.volc.push({ x: ev.x, y: ev.y, r: P.volcano.R });
+    if (ev.id === 'meteor') w.craters.push({ x: ev.x, y: ev.y, r: P.meteor.R });
+    if (ev.id === 'river' && ev.river) w.rivers.push(ev.river);
+    w.history.push({ id: ev.id, x: Math.round(ev.x), y: Math.round(ev.y), drawn: ev.drawn });
+    E.update(w);
+  }
+  return { LIST, P, TAP, RIVER_MIN, byId, make, commit, axisAt, nearestLand, sampleH, strokeLen, segLen, shape, stretch, touchesLand };
+})();
+
+/* ============================================================
+   地図の絵：高さ・雨・気温から、衛星写真のような色と山の陰影を計算する。
+   paint(w, out, S)  …  out は 横(512×S)×縦(256×S) の RGBA。S=1 は動いている間用（速い）、S=2 は止まっている時用（きれい）
+   ============================================================ */
+const PAINT = (() => {
+  const E = typeof EARTH !== 'undefined' ? EARTH : require('./world.js');
+  const { W, H, N, CFG, smooth } = E;
+  // 細かいでこぼこ用の模様（256×256・上下左右がつながる）
+  const DN = 256, detail = new Float32Array(DN * DN);
+  (() => { const r = E.rng(4242), g = new Float32Array(DN * DN);
+    for (let o = 0; o < 4; o++) { const cell = 32 >> o, n = DN / cell, amp = 1 / (1 << o); for (let i = 0; i < n * n; i++) g[i] = r() * 2 - 1;
+      for (let y = 0; y < DN; y++) for (let x = 0; x < DN; x++) { const gx = x / cell, gy = y / cell, x0 = Math.floor(gx), y0 = Math.floor(gy); let fx = gx - x0, fy = gy - y0; fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy);
+        const a = g[(y0 % n) * n + (x0 % n)], b = g[(y0 % n) * n + ((x0 + 1) % n)], c = g[((y0 + 1) % n) * n + (x0 % n)], d = g[((y0 + 1) % n) * n + ((x0 + 1) % n)];
+        detail[y * DN + x] += amp * (a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy); } } })();
+  let hs = null, rs = null, ts = null, ls = null, riv = null, ps = null; const bufs = {};
+  function alloc(S) {      // 作業用の入れ物（大きさごとに1回だけ作って、使い回す）
+    if (!bufs[S]) { const n = N * S * S; bufs[S] = [new Float32Array(n), new Float32Array(n), new Float32Array(n), new Float32Array(n), new Float32Array(n), null]; }
+    [hs, rs, ts, ls, riv, ps] = bufs[S];
+  }
+
+  /* ---------- 「この地形なら、こうなるだろう」の地図の色 ----------
+     RAMP：少ない→多い のように、数字の大きさで変わる色（[位置0〜1, 赤, 緑, 青] を順に並べる）。画面の「色の見本」も、同じ表から作る */
+  const TEMP_MIN = -30, TEMP_MAX = 35;      // 気温の色は、この間（℃）を寒い→暑いにあてる
+  const RAMP = {
+    pop: [[0, 58, 62, 88], [0.12, 92, 74, 130], [0.35, 178, 78, 114], [0.6, 240, 128, 66], [0.82, 255, 202, 92], [1, 255, 246, 196]],
+    temp: [[0, 74, 62, 164], [0.31, 70, 132, 222], [0.46, 112, 202, 236], [0.615, 130, 206, 142], [0.74, 240, 226, 112], [0.86, 245, 150, 60], [1, 206, 50, 46]],
+    rain: [[0, 222, 194, 138], [0.2, 228, 216, 162], [0.36, 170, 208, 150], [0.55, 86, 178, 172], [0.75, 46, 122, 192], [1, 30, 60, 150]] };
+  const NATION = [[232, 122, 102], [242, 198, 92], [122, 192, 112], [92, 172, 224], [178, 132, 212], [242, 162, 192], [150, 208, 200]];      // 国の色（となり合う国は、ちがう色になる）
+  const NO_NATION = [124, 128, 138];                                                                                                        // どの国でもない土地
+  const LIFE_COL = [null, [214, 218, 226], [150, 208, 96], [236, 200, 96], [206, 158, 110], [44, 122, 78], [64, 160, 196], [158, 142, 170]];   // くらしの色：（なし）｜ほぼ無人｜田んぼ｜畑｜放牧｜森｜漁｜山
+  const rc = [0, 0, 0];
+  function ramp(st, v) { let k = 1; while (k < st.length - 1 && v > st[k][0]) k++; const a = st[k - 1], b = st[k], f = Math.min(1, Math.max(0, (v - a[0]) / (b[0] - a[0]))); rc[0] = a[1] + (b[1] - a[1]) * f; rc[1] = a[2] + (b[2] - a[2]) * f; rc[2] = a[3] + (b[3] - a[3]) * f; }
+  /* 海岸の細かい所：絵のマスは陸なのに、計算のマスは海…という時に、すぐとなりの陸のマスの答えを借りる */
+  function nearNation(nat, cx, cy) { for (let dy = -1; dy <= 1; dy++) { const y = cy + dy; if (y < 0 || y >= H) continue; for (let dx = -1; dx <= 1; dx++) { const v = nat[y * W + ((cx + dx + W) % W)]; if (v > 0) return v; } } return 0; }
+  function nearLife(life, cx, cy) { for (let dy = -1; dy <= 1; dy++) { const y = cy + dy; if (y < 0 || y >= H) continue; for (let dx = -1; dx <= 1; dx++) { const v = life[y * W + ((cx + dx + W) % W)]; if (v !== 0 && v !== 6) return v; } } return 1; }
+
+  /* 川：水がたくさん集まるマスから、下流のマスへ線を引く（太さは水の量で決まる） */
+  function rivers(w, S, part) {
+    riv.fill(0); const { acc, down, hv, seaV, order, nOrder, temp } = w, SW = W * S, SH = H * S, T = CFG.riverMin;
+    const dot = (px, py, rad, v) => { const x0 = Math.floor(px - rad - 1), x1 = Math.ceil(px + rad + 1), y0 = Math.max(0, Math.floor(py - rad - 1)), y1 = Math.min(SH - 1, Math.ceil(py + rad + 1));
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const d = Math.hypot(x + 0.5 - px, y + 0.5 - py), a = d < rad - 0.5 ? v : d > rad + 0.5 ? 0 : v * (rad + 0.5 - d); if (a > 0) { const i = y * SW + ((x % SW) + SW) % SW; if (a > riv[i]) riv[i] = a; } } };
+    for (let k = 0; k < nOrder; k++) {
+      const i = order[k], a = acc[i]; if (a < T || temp[i] < CFG.iceT) continue;
+      const d = down[i]; if (d < 0) continue;
+      const x = i % W, y = (i - x) / W; let dx = d % W - x; const dy = (d - d % W) / W - y; if (dx > 1) dx -= W; else if (dx < -1) dx += W;
+      const rad = Math.min(2.3, 0.42 + 0.24 * Math.log2(a / T + 1)) * S * 0.62, v = Math.min(1, 0.6 + 0.12 * Math.log2(a / T + 1));
+      const steps = 2 * S; for (let s = 0; s < steps; s++) { const f = s / steps; dot((x + 0.5 + dx * f) * S, (y + 0.5 + dy * f) * S, rad, v); }
+    }
+    const big = (path, upto) => { for (let k = 0; k + 1 < upto; k++) { const a = path[k], b = path[k + 1]; let dx = b.x - a.x; const dy = b.y - a.y; if (dx > 1) dx -= W; else if (dx < -1) dx += W;
+      if (hv[a.y * W + a.x] <= seaV) continue; const rad = (1.25 + 1.35 * k / path.length) * S * 0.62 + 0.25;
+      for (let s = 0; s < 2 * S; s++) { const f = s / (2 * S); dot((a.x + 0.5 + dx * f) * S, (a.y + 0.5 + dy * f) * S, rad, 1); } } };
+    for (const r of w.rivers) big(r.path.map(i => ({ x: i % W, y: (i - i % W) / W })), r.path.length);
+    if (part && part.path) big(part.path, part.shown);                                               // 大河が生まれていく途中
+  }
+
+  function paint(w, out, S, opt) {
+    S = S || 1; opt = opt || {}; alloc(S);
+    const h = w.hv, rain = w.rain, temp = w.temp, lake = w.lake, sea = w.seaV, SW = W * S, SH = H * S;
+    const lay = opt.layer || null, kind = lay ? lay.kind : '', LD = lay ? lay.data : null, pp = kind === 'pop' ? LD.pop : null, nat = kind === 'nation' ? LD.nation : null, ncol = nat ? LD.color : null, life = kind === 'life' ? LD.life : null;      // lay＝「人口」などの地図をぬる時の指定
+    if (pp && !ps) ps = bufs[S][5] = new Float32Array(N * S * S);
+    // 1) 細かいマス目に引きのばす（S=2 の時は間をなめらかにつなぎ、細かいでこぼこを足す）
+    if (S === 1) { hs.set(h); rs.set(rain); ts.set(temp); for (let i = 0; i < N; i++) ls[i] = lake[i]; if (pp) ps.set(pp); }
+    else for (let Y = 0; Y < SH; Y++) {
+      const gy = (Y + 0.5) / S - 0.5, y0 = Math.max(0, Math.floor(gy)), y1 = Math.min(H - 1, y0 + 1), fy = Math.min(1, Math.max(0, gy - y0));
+      const pf = Math.min(1, Math.cos((0.5 - (Y + 0.5) / SH) * Math.PI) * 2.5);      // 北極・南極の近くでは、細かいでこぼこを弱くする（地球儀にすると横につぶれて、すじに見えるため）
+      for (let X = 0; X < SW; X++) {
+        const gx = (X + 0.5) / S - 0.5, xf = Math.floor(gx), fx = gx - xf, x0 = ((xf % W) + W) % W, x1 = x0 + 1 === W ? 0 : x0 + 1;
+        const i00 = y0 * W + x0, i10 = y0 * W + x1, i01 = y1 * W + x0, i11 = y1 * W + x1, w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy, o = Y * SW + X;
+        let hh = h[i00] * w00 + h[i10] * w10 + h[i01] * w01 + h[i11] * w11;
+        const e = hh - sea, dn = (detail[((Y * 3) & 255) * DN + ((X * 3) & 255)] * 0.6 + detail[(Y & 255) * DN + (X & 255)] * 0.4) * pf;
+        hh += dn * (e > 0 ? 0.004 + 0.06 * smooth(0.15, 0.8, e) : 0.003);
+        hs[o] = hh; rs[o] = rain[i00] * w00 + rain[i10] * w10 + rain[i01] * w01 + rain[i11] * w11 + dn * 0.03; ts[o] = temp[i00] * w00 + temp[i10] * w10 + temp[i01] * w01 + temp[i11] * w11 + dn * 0.8;
+        ls[o] = lake[i00] * w00 + lake[i10] * w10 + lake[i01] * w01 + lake[i11] * w11;
+        if (pp) { let pv = 0, pw = 0; if (h[i00] > sea) { pv += pp[i00] * w00; pw += w00; } if (h[i10] > sea) { pv += pp[i10] * w10; pw += w10; } if (h[i01] > sea) { pv += pp[i01] * w01; pw += w01; } if (h[i11] > sea) { pv += pp[i11] * w11; pw += w11; } ps[o] = pw > 0 ? pv / pw : 0; }      // 人口：海のマスは まぜない（海岸の町が うすくならないように）
+      }
+    }
+    if (!opt.noRivers) rivers(w, S, opt.part);
+    // 2) 色と影
+    const K = 7 * S, fade = opt.riverFade == null ? 1 : opt.riverFade;
+    for (let Y = 0; Y < SH; Y++) {
+      const up = (Y > 0 ? Y - 1 : Y) * SW, dn = (Y < SH - 1 ? Y + 1 : Y) * SW, row = Y * SW;
+      const cy = (Y / S) | 0, cyC = cy * W, cyU = (((Y > 0 ? Y - 1 : Y) / S) | 0) * W, cyD = (((Y < SH - 1 ? Y + 1 : Y) / S) | 0) * W;
+      for (let X = 0; X < SW; X++) {
+        const o = row + X, xl = X === 0 ? SW - 1 : X - 1, xr = X === SW - 1 ? 0 : X + 1, hh = hs[o], e = hh - sea, t = ts[o];
+        let r, g, b;
+        const sl = ((hs[row + xr] - hs[row + xl]) + (hs[dn + X] - hs[up + X])) * K;      // 左上から光が当たる
+        if (e <= 0) {       // 海：深いほど濃い青
+          const d = -e, a = smooth(0, 0.09, d), c = smooth(0.08, 0.8, d);
+          r = 66 + (30 - 66) * a + (12 - 30) * c; g = 152 + (100 - 152) * a + (44 - 100) * c; b = 200 + (168 - 200) * a + (96 - 168) * c;
+          const sh = 1 + Math.max(-0.12, Math.min(0.12, sl * 0.25)); r *= sh; g *= sh; b *= sh;
+          const ice = smooth(CFG.seaIceT + 2, CFG.seaIceT - 3, t); if (ice > 0) { r += (226 - r) * ice; g += (236 - g) * ice; b += (242 - b) * ice; }
+          if (lay) {       // 「人口」などの地図では、海を暗くして陸を目立たせる（気温は海の上も色をぬる。くらしは、陸に近い浅い海＝漁場に色をぬる）
+            r = r * 0.36 + 8; g = g * 0.36 + 11; b = b * 0.4 + 22;
+            if (kind === 'temp') { ramp(RAMP.temp, (t - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)); r = r * 0.35 + rc[0] * 0.4; g = g * 0.35 + rc[1] * 0.4; b = b * 0.35 + rc[2] * 0.4; }
+            else if (life && e > -0.07 && t > CFG.seaIceT + 1.5) { const q = 0.62 * smooth(-0.07, -0.045, e); r += (LIFE_COL[6][0] - r) * q; g += (LIFE_COL[6][1] - g) * q; b += (LIFE_COL[6][2] - b) * q; }
+          }
+        } else {
+          const rr = rs[o]; let k;
+          if (lay) {
+            if (pp) ramp(RAMP.pop, ps[o]);
+            else if (kind === 'temp') ramp(RAMP.temp, (t - TEMP_MIN) / (TEMP_MAX - TEMP_MIN));
+            else if (kind === 'rain') ramp(RAMP.rain, rr);
+            else { const cx = (X / S) | 0;
+              if (nat) { let n = nat[cyC + cx]; if (n < 0) n = nearNation(nat, cx, cy); const c = n > 0 ? NATION[ncol[n]] : NO_NATION; rc[0] = c[0]; rc[1] = c[1]; rc[2] = c[2];
+                let m = nat[cyC + ((xl / S) | 0)], edge = m >= 0 && m !== n; if (!edge) { m = nat[cyC + ((xr / S) | 0)]; edge = m >= 0 && m !== n; } if (!edge) { m = nat[cyU + cx]; edge = m >= 0 && m !== n; } if (!edge) { m = nat[cyD + cx]; edge = m >= 0 && m !== n; }
+                if (edge) { rc[0] = rc[0] * 0.22 + 8; rc[1] = rc[1] * 0.22 + 9; rc[2] = rc[2] * 0.22 + 14; } }      // 国境の線
+              else { let lf = life[cyC + cx]; if (lf === 0 || lf === 6) lf = nearLife(life, cx, cy); const c = LIFE_COL[lf]; rc[0] = c[0]; rc[1] = c[1]; rc[2] = c[2]; } }
+            r = rc[0]; g = rc[1]; b = rc[2];
+          } else {
+          // 乾いた土地（黄土色）→ 草原 → 森
+          k = smooth(0.12, 0.24, rr); r = 229 + (182 - 229) * k; g = 206 + (170 - 206) * k; b = 156 + (104 - 156) * k;    // 砂漠 → 乾いた草原
+          k = smooth(0.27, 0.42, rr); r += (132 - r) * k; g += (162 - g) * k; b += (82 - b) * k;             // → 草原
+          k = smooth(0.45, 0.66, rr); r += (68 - r) * k; g += (122 - g) * k; b += (62 - b) * k;              // → 森
+          k = smooth(0.68, 0.9, rr) * smooth(15, 24, t); r += (38 - r) * k; g += (98 - g) * k; b += (50 - b) * k;   // → 熱帯の濃い森
+          k = smooth(9, -3, t); r += (148 - r) * k; g += (146 - g) * k; b += (124 - b) * k;                  // 寒い所：ツンドラ
+          k = smooth(0.38, 0.9, e); r += (126 - r) * k; g += (106 - g) * k; b += (88 - b) * k;               // 高い山：岩のこげ茶
+          k = smooth(CFG.iceT + 4, CFG.iceT - 4, t + 7 * smooth(0.3, 0.9, e)); r += (240 - r) * k; g += (244 - g) * k; b += (247 - b) * k;   // 雪と氷（高い山は、てっぺんだけ白くして、中腹は岩の色を見せる）
+          }
+          const lk = ls[o]; if (lk > 0.02) { const q = Math.min(1, lk * 1.6); if (lay) { r += (34 - r) * q; g += (64 - g) * q; b += (104 - b) * q; } else { r += (66 - r) * q; g += (140 - g) * q; b += (196 - b) * q; } }
+          else { const sh = 1 + (sl > 0 ? 0.36 * sl / (0.5 + sl) : 0.5 * sl / (0.5 - sl)) * (lay ? 0.55 : 1); r *= sh; g *= sh; b *= sh; }      // 影：急な所ほど濃く（でも黒つぶれしない）。色で数字を見せる地図では、影をひかえめにする
+          const rv = riv[o] * fade * (lay ? 0.5 : 1); if (rv > 0 && lk <= 0.02) { if (lay) { r += (150 - r) * rv; g += (200 - g) * rv; b += (240 - b) * rv; } else { r += (80 - r) * rv; g += (150 - g) * rv; b += (205 - b) * rv; } }
+          if (!lay && e < 0.012 * 1) { const q = 1 - e / 0.012; r += (214 - r) * q * 0.35; g += (204 - g) * q * 0.35; b += (160 - b) * q * 0.35; }   // 波うちぎわ
+        }
+        const p = o * 4; out[p] = r; out[p + 1] = g; out[p + 2] = b; out[p + 3] = e <= 0 ? 254 : 255;      // 4つ目は「海かどうか」（地球儀で海を光らせる時に使う）
+      }
+    }
+    // 火山：山頂は黒っぽい岩、火口は赤く光る
+    const grow = opt.volcGrow, vs = lay ? [] : grow ? w.volc.concat([grow]) : w.volc;
+    for (const v of vs) { const kx = E.lonScale(v.y), R = v.r * S, t = v.t == null ? 1 : v.t, cx = (v.x + 0.5) * S, cy = (v.y + 0.5) * S;
+      for (let Y = Math.max(0, Math.floor(cy - R * 0.5)); Y <= Math.min(SH - 1, Math.ceil(cy + R * 0.5)); Y++) for (let dX = -Math.ceil(R * 0.5 / kx); dX <= Math.ceil(R * 0.5 / kx); dX++) {
+        const X = (((Math.round(cx) + dX) % SW) + SW) % SW, a = Math.hypot((Math.round(cx) + dX + 0.5 - cx) * kx, Y + 0.5 - cy) / R; if (a > 0.5) continue;
+        const o = Y * SW + X, p = o * 4; if (hs[o] <= sea) continue;
+        const rock = (1 - smooth(0.16, 0.46, a)) * 0.82 * t, lava = (1 - smooth(0.035, 0.1, a)) * t, sh = out[p + 1] / 150;
+        out[p] += (78 * sh - out[p]) * rock; out[p + 1] += (66 * sh - out[p + 1]) * rock; out[p + 2] += (62 * sh - out[p + 2]) * rock;
+        out[p] += (255 - out[p]) * lava; out[p + 1] += (96 - out[p + 1]) * lava; out[p + 2] += (40 - out[p + 2]) * lava;
+      } }
+  }
+  return { paint, rivers, RAMP, NATION, NO_NATION, LIFE_COL, TEMP_MIN, TEMP_MAX };
+})();
+
+/* ============================================================
+   地球儀：できあがった地図（横1024×縦512の絵）を球に貼って回す。
+   3Dの部品（ライブラリ）は使わず、点ごとに「球のどこが見えているか」を先に計算しておいて、回す時は横にずらすだけ。
+   ============================================================ */
+const GLOBE = (() => {
+  const PI = Math.PI, TAU = PI * 2;
+  /* ---------- 設定（ここを書き換えると調整できます） ---------- */
+  const PITCH = -0.3;                // 北極を手前にかたむける角度（ラジアン。マイナスで手前）
+  const ROLL = -0.33;                // 地軸のかたむき（右に倒す）
+  const LIGHT = [-0.55, 0.5, 0.67];  // 太陽の向き（左上・手前）
+  const TILT_MAX = 1.35;             // 指で上下に回せる限度（ラジアン。約77度。ほぼ真上・真下からのぞける）
+  const cr = Math.cos(ROLL), sr = Math.sin(ROLL);
+  const pit = p => (p == null ? PITCH : p);          // 傾きの指定がなければ、いつもの傾き
+  const toView = (x, y, z, pitch) => { const p = pit(pitch), cp = Math.cos(p), sp = Math.sin(p), y1 = y * cp + z * sp, z1 = -y * sp + z * cp; return [x * cr - y1 * sr, x * sr + y1 * cr, z1]; };      // 星の向き → 画面の向き
+
+  /* 直径 D ピクセルの地球儀を用意する（点ごとに：地図の何行目か・回していない時の何列目か・明るさ・ふちの透けぐあい） */
+  function prepare(D, TW, TH, pitch) {       // TW×TH＝貼る地図の絵の大きさ（TW は 2 のべき乗）　pitch＝傾き（なければ、いつもの傾き）
+    const n = D * D, row = new Int32Array(n), col = new Float32Array(n), shade = new Uint16Array(n), spec = new Uint8Array(n), alpha = new Uint8Array(n), R = D / 2, ll = Math.hypot(LIGHT[0], LIGHT[1], LIGHT[2]);
+    const ax = new Float32Array(n), ay = new Float32Array(n), az = new Float32Array(n);      // 画面の点ごとの向き（地軸のかたむきを直したもの）。上下に回す時に使う
+    for (let py = 0; py < D; py++) for (let px = 0; px < D; px++) {
+      const k = py * D + px, x = (px + 0.5 - R) / (R - 1), y = -(py + 0.5 - R) / (R - 1), d2 = x * x + y * y;
+      if (d2 > 1.03) { alpha[k] = 0; continue; }
+      const dd = Math.min(d2, 0.9995), z = Math.sqrt(1 - dd);
+      ax[k] = x * cr + y * sr; ay[k] = -x * sr + y * cr; az[k] = z;
+      const dif = Math.max(0, (x * LIGHT[0] + y * LIGHT[1] + z * LIGHT[2]) / ll), limb = 0.72 + 0.28 * z;
+      shade[k] = Math.round(256 * (0.34 + 0.84 * Math.pow(dif, 0.8)) * limb);
+      const hx = LIGHT[0] / ll, hy = LIGHT[1] / ll, hz = LIGHT[2] / ll + 1, hl = Math.hypot(hx, hy, hz), s = Math.max(0, (x * hx + y * hy + z * hz) / hl);
+      spec[k] = Math.round(84 * Math.pow(s, 55));
+      const edge = (1 - Math.sqrt(d2)) * (R - 1); alpha[k] = edge >= 1 ? 255 : edge <= -0.5 ? 0 : Math.round(255 * Math.max(0, Math.min(1, edge + 0.5)));
+    }
+    const g = { D, TW, TH, row, col, shade, spec, alpha, ax, ay, az, pitch: NaN };
+    return tilt(g, pit(pitch));
+  }
+  /* 地球儀を上下に回す（傾きを変える）。点ごとに「地図の何行目・何列目が見えるか」を計算し直す。明るさは画面の向きで決まるので変わらない */
+  function tilt(g, pitch) {
+    pitch = pit(pitch); if (g.pitch === pitch) return g;
+    const { D, TW, TH, row, col, alpha, ax, ay, az } = g, n = D * D, cp = Math.cos(pitch), sp = Math.sin(pitch), kr = TH / PI, kc = TW / TAU, hw = TW / 2, top = TH - 1;
+    for (let k = 0; k < n; k++) {
+      if (!alpha[k]) continue;
+      const y1 = ay[k], z = az[k]; let py = y1 * cp - z * sp; if (py > 1) py = 1; else if (py < -1) py = -1;
+      let r = (TH / 2 - Math.asin(py) * kr) | 0; if (r < 0) r = 0; else if (r > top) r = top;
+      row[k] = r * TW; col[k] = Math.atan2(ax[k], y1 * sp + z * cp) * kc + hw;
+    }
+    g.pitch = pitch; return g;
+  }
+  /* 地球儀を描く。out＝D×D の絵（32ビットずつ）　tex＝地図の絵（1024×512、32ビットずつ。上位8ビットが254なら海）　rot＝回した角度 */
+  function draw(g, out, tex, rot) {
+    const { D, TW, row, col, shade, spec, alpha } = g, n = D * D, shift = ((rot / TAU) % 1 + 1) % 1 * TW, M = TW - 1;
+    for (let k = 0; k < n; k++) {
+      const a = alpha[k]; if (!a) { out[k] = 0; continue; }
+      const cf = col[k] + shift, c0 = cf | 0, f = cf - c0, t0 = tex[row[k] + (c0 & M)], t1 = tex[row[k] + ((c0 + 1) & M)], sh = shade[k];
+      let r = (t0 & 255) + ((t1 & 255) - (t0 & 255)) * f, gg = ((t0 >> 8) & 255) + (((t1 >> 8) & 255) - ((t0 >> 8) & 255)) * f, b = ((t0 >> 16) & 255) + (((t1 >> 16) & 255) - ((t0 >> 16) & 255)) * f;
+      r = r * sh >> 8; gg = gg * sh >> 8; b = b * sh >> 8;
+      if ((t0 >>> 24) < 255) { const s = spec[k]; r += s; gg += s; b += s; }            // 海は太陽を反射して光る
+      out[k] = (a << 24) | ((b > 255 ? 255 : b) << 16) | ((gg > 255 ? 255 : gg) << 8) | (r > 255 ? 255 : r);
+    }
+  }
+  /* 地図の上の場所（lat,lon はラジアン）が、地球儀のどこに見えるか。{x,y}＝中心からのずれ（半径を1として）、z＞0 なら手前側 */
+  function project(lat, lon, rot, pitch) { const a = lon - rot, c = Math.cos(lat), v = toView(c * Math.sin(a), Math.sin(lat), c * Math.cos(a), pitch); return { x: v[0], y: -v[1], z: v[2] }; }
+  /* いちばん栄えている所などが正面に来る回し角度 */
+  const facing = lon => lon;
+
+  /* 平面の地図 ⇔ 地球儀 の変形。e=0 で平面、e=1 で地球儀。out＝M×M の絵、Wf＝平面の時の横幅、R＝地球儀の半径（どちらも out の中の長さ） */
+  let sinL = null, cosL = null, sinP = null, cosP = null, order = null;
+  function morph(out, M, tex, TW, TH, e, rot, Wf, R, big, pitch) {      // big＝点を3×3で打つ（すき間ができないように）　pitch＝地球儀の傾き
+    if (!sinL || sinL.length !== TW) { sinL = new Float32Array(TW); cosL = new Float32Array(TW); sinP = new Float32Array(TH); cosP = new Float32Array(TH); }
+    out.fill(0); const pp = pit(pitch), cp = Math.cos(pp), sp = Math.sin(pp);
+    for (let x = 0; x < TW; x += 2) { const a = ((x + 1) / TW - 0.5) * TAU - rot; sinL[x] = Math.sin(a); cosL[x] = Math.cos(a); }
+    for (let y = 0; y < TH; y += 2) { const p = (0.5 - (y + 1) / TH) * PI; sinP[y] = Math.sin(p); cosP[y] = Math.cos(p); }
+    const c = M / 2, lx = LIGHT[0], ly = LIGHT[1], lz = LIGHT[2], ll = Math.hypot(lx, ly, lz), cut = -(1 - e) * 1.02 - 0.02, shiftCols = Math.round(rot / TAU * TW);
+    const one = xi => {
+      // この列が、平面のどこにあるか（回した分だけ横にずれた地図として並べる）
+      let u = (xi + 1) / TW - 0.5 - rot / TAU; u -= Math.round(u); const xf = u * Wf, sl = sinL[xi], cl = cosL[xi];
+      for (let y = 0; y < TH; y += 2) {
+        const cph = cosP[y], px = cph * sl, py = sinP[y], pz = cph * cl;
+        const y1 = py * cp + pz * sp, vz = -py * sp + pz * cp, vx = px * cr - y1 * sr, vy = px * sr + y1 * cr;
+        if (vz < cut) continue;                                                              // 裏側は、丸まるにつれて見えなくなる
+        const X = (c + xf + (vx * R - xf) * e) | 0, Y = (c + ((y + 1) / TH - 0.5) * Wf * 0.5 + (-vy * R - ((y + 1) / TH - 0.5) * Wf * 0.5) * e) | 0;
+        if (X < 0 || Y < 0 || X >= M - 1 || Y >= M - 1) continue;
+        const t = tex[y * TW + xi], dif = Math.max(0, (vx * lx + vy * ly + vz * lz) / ll), sh = 1 + ((0.34 + 0.84 * Math.pow(dif, 0.8)) * (0.72 + 0.28 * Math.max(0, vz)) - 1) * e;
+        let r = (t & 255) * sh, g = ((t >> 8) & 255) * sh, b = ((t >> 16) & 255) * sh; if (r > 255) r = 255; if (g > 255) g = 255; if (b > 255) b = 255;
+        const v = 0xff000000 | (b << 16) | (g << 8) | r, o = Y * M + X; out[o] = v; out[o + 1] = v; out[o + M] = v; out[o + M + 1] = v;
+        if (big && Y < M - 2 && X < M - 2) { out[o + 2] = v; out[o + M + 2] = v; out[o + 2 * M] = v; out[o + 2 * M + 1] = v; out[o + 2 * M + 2] = v; }
+      }
+    };
+    // 裏側になる列（正面から遠い経度）から先に描く → 手前の列が上に重なる
+    const front = ((Math.round((rot / TAU + 0.5) * TW / 2) * 2) % TW + TW) % TW;
+    for (let k = TW / 2 - 2; k >= 0; k -= 2) { one(((front + k) % TW + TW) % TW & ~1); if (k) one(((front - k) % TW + TW) % TW & ~1); }
+  }
+  return { prepare, tilt, draw, project, morph, toView, PITCH, TILT_MAX };
+})();
+
+/* ============================================================
+   称号（診断）：できた世界でいちばん目立つ特徴を選ぶ。
+   特徴ごとに「ふつうの星ならこのくらい」と「ばらつき」を決めておき、ふつうよりどれだけ多いか（点数）がいちばん高いものを称号にする。
+   どれも目立たない時と、上位がほとんど同じ点数で並んだ時（＝ほどよくそろっている）は「調和の星」。
+   ============================================================ */
+const TITLES = (() => {
+  const LIST = [
+    { key: 'mount', name: '山岳帝国の星', desc: '山脈が国境を分ける、険しい世界' },
+    { key: 'desert', name: '砂漠の星', desc: '乾いた大地に、わずかなオアシスが栄える' },
+    { key: 'sea', name: '水の惑星', desc: '陸は少なく、海の恵みで栄える' },
+    { key: 'ice', name: '氷の星', desc: '白い大地。人は海ぞいの小さな緑に集まる' },
+    { key: 'green', name: '緑の楽園', desc: '雨と川に恵まれた、実り多い世界' },
+    { key: 'islands', name: '島々の星', desc: '海に点々と浮かぶ、島の世界' },
+    { key: 'river', name: '大河文明の星', desc: '大きな川のほとりで、街が栄える' },
+    { key: 'volc', name: '火の星', desc: '火山が煙を上げる、土の肥えた世界' },
+    { key: 'crater', name: '傷だらけの星', desc: '隕石のあとが湖になった、でこぼこの世界' },
+    { key: 'harmony', name: '調和の星', desc: '山も海も砂漠も緑も、ほどよくそろった世界' },
+  ];
+  /* ---------- 調整用の数字（自動プレイを何千回もさせて測り、決めた値） ----------
+     測った結果（調整に使っていない地球で、あらためて測ったもの）：
+     　・カードをでたらめに選ぶと（タップと なぞりを混ぜて 800回）、どの称号も 8〜11% ずつ出る。
+     　　タップだけの人（300回）は 7〜14%、なぞるだけの人（300回）は 8〜12%。
+     　・1つの称号をねらって遊ぶと（540回）、平均 76% でその称号になる（称号によって 62〜97%）。
+     変える時のめやす：「ばらつき」を小さくすると、その称号が出やすくなる。 */
+  const BASE = {                 // [ふつうの量, ばらつき]　量は「星の表面ぜんたいに対する割合」。島は数、火山とクレーターは個数
+    mount: [0.00871, 0.0161],     // 山（高い所の広さ）
+    desert: [0.047, 0.0391],     // 砂漠
+    sea: [0.62, 0.0494],         // 海
+    ice: [0.0185, 0.0467],        // 氷
+    green: [0.176, 0.0257],       // 緑
+    islands: [18.7, 4.34],       // 島の数
+    river: [0.0171, 0.00723],    // 川（大河は重く数える）
+    volc: [0.167, 0.758],        // 火山の数（1つで 1.10 点、2つで 2.42 点）
+    crater: [-0.119, 0.758],     // クレーターの数（海にしずんで見えないものは数えない。1つで 1.48 点）
+  };
+  const HARMONY = 0.822;         // いちばん高い点数がこれより低ければ「調和の星」
+  const CLOSE = 0.387, CLOSE_N = 3;  // 上から3番目までの点数が 0.387 以内に並んでいる時も「調和の星」
+  const byKey = {}; LIST.forEach(t => { byKey[t.key] = t; });
+  function judge(st) {
+    const scores = {}, order = [];
+    for (const k in BASE) { scores[k] = (st[k] - BASE[k][0]) / BASE[k][1]; order.push(k); }
+    order.sort((a, b) => scores[b] - scores[a]);
+    const top = scores[order[0]], key = top < HARMONY || scores[order[CLOSE_N - 1]] >= top - CLOSE ? 'harmony' : order[0];
+    return { key, name: byKey[key].name, desc: byKey[key].desc, scores, order };
+  }
+  return { LIST, BASE, HARMONY, CLOSE, CLOSE_N, byKey, judge };
+})();
+
+/* ============================================================
+   もしもの地球（1分で地球をつくるゲーム）：画面と遊びの流れ
+   ============================================================ */
+const APP = (() => {
+  /* ---------- 設定（ここを書き換えると調整できます） ---------- */
+  const GAME_TITLE = 'もしもの地球';
+  const HASHTAG = '#もしもの地球';
+  const CREDIT = 'N.K. Works';
+  const SHARE_URL = 'https://nkworks-games.com/moshimo-chikyu/';      // 公開している住所（シェア文と画像に入る）
+  const TURNS = 5;                      // カードを選べる回数（「これで完成」を押せば、5回より少なくても完成にできる）
+  const HAND = 3;                       // 1回に配るカードの枚数
+  const MAX_USE = 2;                    // 同じカードを使える回数（選んだカードは山札にもどり、また出てくる）
+  const NAME_MAX = 12;                  // 星の名前の最大文字数
+  const SPIN = 0.24;                    // 地球儀が回る速さ（1秒あたりのラジアン。約26秒で1回転）
+  const DUR = { collide: 1.5, rift: 1.5, volcano: 1.1, uplift: 1.1, meteor: 1.3, iceage: 1.5, warming: 1.5, rain: 1.3, drought: 1.3, river: 1.7 };   // 地形が変わるのにかける時間（秒）
+  const PICK_HINT = { collide: 'なぞった所が山脈になる（タップも可）', rift: 'なぞった線で陸が裂ける（タップも可）', volcano: '火山を作る所をタップ（海なら島に）', uplift: 'なぞった所が持ち上がる（タップも可）', meteor: '隕石を落とす所をタップ',
+    iceage: '地図をタップすると、世界全体が冷える', warming: '地図をタップすると、世界全体が暖まる', rain: 'なぞった所に雨がふる（タップも可）', drought: 'なぞった所が乾く（タップも可）', river: '川の道すじをなぞろう（タップも可）' };
+  const DONE_HINT = { collide: '山脈ができた。山の風下は乾きやすい', rift: '陸が裂けて、新しい海ができた', volcano: '火山ができた。ふもとは土が肥える', uplift: '陸が持ち上がって、高原ができた', meteor: 'クレーターができた。まわりは荒れ地に',
+    iceage: '海が引いて陸が広がり、寒い所が凍った', warming: '海面が上がって、低い土地が沈んだ', rain: '雨がふえて、緑が広がった', drought: '雨がへって、乾いた土地が広がった', river: '大きな川ができた。川ぞいは栄えやすい' };
+  const MSG = {                          // そのほかの案内（どれも、いちばんせまい画面で1行に入る長さ＝全角18文字まで）
+    pick: 'カードを1枚えらぼう', pickAgain: '1枚えらぼう（同じカードは2回まで）', first: '先にカードを1枚えらぼう',
+    noLand: '近くに陸がないよ。陸の上でどうぞ', shortRiver: '川が短すぎるよ。広い陸の上でどうぞ',
+    full: '長さはここまで。離すと決まるよ', outside: '地図の外で離すと、取り消し', cancel: '取り消したよ。もう一度どうぞ', finish: '完成！ この星を調べています…',
+    volcSea: '海の上に、火山の島ができた', ringIsle: '浅い海に、輪の形の島ができた', meteorSea: '隕石は海にしずんだ。あとは波の下', newLand: '海底が持ち上がって、新しい陸ができた',
+    seaIsle: '海底がもり上がって、島ができた', seaRidge: '海底の山脈は、海面にとどかなかった', rainSea: '雨は海にふって、陸にはとどかなかった', droughtSea: '海の上が乾いても、陸は変わらなかった', spin: '上下左右に、ぐるっと回せます' };
+  const CAP_NAME = 'いちばん栄えている所';      // 金色の星のしるしの呼び名
+  /* 結果画面で切りかえて見られる地図：[合言葉, ボタンの字, 切りかえた時に出す一言] */
+  const LAYERS = [['land', '地形', ''], ['pop', '人口', '海や川の近くに、人が集まる'], ['temp', '気温', '赤道は暑く、極地と高い山は寒い'], ['rain', '雨', '海風が当たる所は雨、山かげは乾く'],
+    ['nation', '国', '山や海や砂漠が、国境になる'], ['life', 'くらし', '気温・雨・地形で、くらしが変わる']];
+  const LIFE_NAME = [[2, '田んぼ'], [3, '畑'], [4, '放牧'], [5, '森'], [6, '漁'], [7, '山'], [1, 'ほぼ無人']];      // 「くらし」の色の見本（番号は EARTH.LIFE）
+  const SAVE_MUTE = 'chikyu_mute';
+
+  const E = EARTH, C = CARDS, P = PAINT, G = GLOBE, T = TITLES;
+  const $ = id => document.getElementById(id), TAU = Math.PI * 2;
+  const now = () => performance.now() / 1000, clamp = E.clamp, lerp = E.lerp;
+  const easeIO = t => { t = clamp(t, 0, 1); return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
+  const easeOut = t => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
+  const easeBack = t => { t = clamp(t, 0, 1); const c = 1.70158; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
+  const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+
+  /* ---------- 状態 ---------- */
+  const S = {
+    screen: 'boot',            // boot（準備中）| title | unwrap（地球儀→地図）| play | finish（しるし→称号→地球儀）| result
+    w: null, seed: 0, turn: 0, hand: [], deck: [], discard: [], uses: {}, sel: null, busy: false,
+    ptr: null, stroke: null, anim: null, cross: 0, fin: null, morph: null, rot: 0, drag: null, award: null, name: '', shake: 0,
+    layer: 'land', lay: null,      // layer＝結果画面で見ている地図の種類（land 地形 | pop 人口 | temp 気温 | rain 雨 | nation 国 | life くらし）　lay＝人口・国・くらしの計算結果（必要になった分から入る）
+    tilt: G.PITCH, tiltAt: -9, view: 'globe', spun: false,      // tilt＝地球儀の上下の傾き　view＝結果画面で見ているもの（globe 地球儀 | map 平面の地図）　spun＝地球儀を自分で回したことがあるか
+    shareGlobe: null, hintTimer: 0, perf: { skip: false, globeMax: 640 },
+  };
+
+  /* ---------- 音（Web Audioで合成。BGMはなし） ---------- */
+  let AC = null, OUT = null, NOISE = null, muted = false;
+  try { muted = localStorage.getItem(SAVE_MUTE) === '1'; } catch (e) { /* 保存が使えない環境では、毎回「音あり」から始まる */ }
+  function audioInit() {
+    try {
+      if (!AC) { AC = new (window.AudioContext || window.webkitAudioContext)(); const b = AC.createBuffer(1, AC.sampleRate, AC.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; NOISE = b; OUT = AC.createGain(); OUT.gain.value = 0.8; OUT.connect(AC.destination); }
+      if (AC.state === 'suspended') AC.resume();
+    } catch (e) { AC = null; }
+  }
+  function tone(f1, f2, dur, type, vol, delay) {
+    if (!AC || muted) return;
+    try { const t = AC.currentTime + (delay || 0), o = AC.createOscillator(), g = AC.createGain(); o.type = type || 'sine'; o.frequency.setValueAtTime(f1, t); if (f2 !== f1) o.frequency.exponentialRampToValueAtTime(Math.max(1, f2), t + dur);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + Math.min(0.03, dur * 0.3)); g.gain.exponentialRampToValueAtTime(0.0008, t + dur); o.connect(g); g.connect(OUT); o.start(t); o.stop(t + dur + 0.03); } catch (e) { /* 無視 */ }
+  }
+  function noise(dur, vol, type, freq, delay) {
+    if (!AC || muted || !NOISE) return;
+    try { const t = AC.currentTime + (delay || 0), s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); s.buffer = NOISE; s.loop = true; f.type = type || 'bandpass'; f.frequency.value = freq || 1500;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + Math.min(0.08, dur * 0.25)); g.gain.exponentialRampToValueAtTime(0.0008, t + dur); s.connect(f); f.connect(g); g.connect(OUT); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02); } catch (e) { /* 無視 */ }
+  }
+  const semi = n => 523.25 * Math.pow(2, n / 12);
+  const sfx = {
+    ui() { tone(700, 700, 0.04, 'square', 0.03); },
+    pick() { tone(660, 990, 0.08, 'triangle', 0.12); },
+    deal() { [0, 0.06, 0.12].forEach((d, i) => tone(520 + i * 110, 520 + i * 110, 0.06, 'sine', 0.07, d)); },
+    no() { tone(220, 180, 0.12, 'triangle', 0.08); },
+    collide() { noise(1.3, 0.5, 'lowpass', 130); tone(70, 44, 1.2, 'sawtooth', 0.12); noise(0.3, 0.22, 'bandpass', 900, 0.8); },
+    rift() { noise(1.4, 0.45, 'lowpass', 190); tone(160, 48, 1.3, 'sawtooth', 0.08); },
+    volcano() { noise(0.9, 0.6, 'lowpass', 300); tone(110, 40, 0.8, 'sine', 0.4); noise(0.7, 0.14, 'highpass', 2500, 0.2); },
+    uplift() { tone(58, 150, 1.0, 'sawtooth', 0.1); noise(1.0, 0.35, 'lowpass', 150); },
+    meteor() { tone(1900, 300, 0.36, 'sawtooth', 0.07); noise(0.34, 0.1, 'highpass', 3000); noise(0.9, 0.7, 'lowpass', 260, 0.36); tone(90, 30, 0.9, 'sine', 0.5, 0.36); },
+    iceage() { noise(1.4, 0.18, 'highpass', 4500); [0, 0.25, 0.5].forEach((d, i) => tone(1568 - i * 180, 1568 - i * 180, 0.5, 'sine', 0.06, d)); },
+    warming() { tone(200, 420, 1.3, 'sine', 0.12); tone(300, 630, 1.3, 'sine', 0.06); noise(1.2, 0.1, 'lowpass', 700); },
+    rain() { noise(1.3, 0.28, 'highpass', 5000); noise(1.3, 0.2, 'bandpass', 1800); },
+    drought() { noise(1.3, 0.22, 'bandpass', 500); tone(520, 380, 1.2, 'sine', 0.04); },
+    river() { noise(1.6, 0.26, 'bandpass', 1100); tone(440, 660, 1.5, 'sine', 0.04); },
+    mark(i) { const f = 587 * Math.pow(1.122, i); tone(f, f * 1.5, 0.1, 'triangle', 0.13); },
+    done() { [0, 7, 12].forEach((n, i) => tone(semi(n), semi(n), 0.3, 'triangle', 0.1, i * 0.1)); },
+    award() { [0, 4, 7, 12, 16].forEach((n, i) => tone(semi(n - 5), semi(n - 5), 0.5, 'triangle', 0.1, i * 0.09)); tone(semi(14), semi(14), 1.0, 'sine', 0.1, 0.5); },
+    flip(open) { noise(0.55, 0.1, 'bandpass', open ? 900 : 600); tone(open ? 520 : 330, open ? 330 : 520, 0.45, 'sine', 0.06); },      // 地球儀 ⇔ 地図 の切りかえ
+    globe() { noise(1.3, 0.16, 'bandpass', 700); tone(220, 440, 1.3, 'sine', 0.08); [0.95, 1.07, 1.19].forEach((d, i) => tone(1318 + i * 250, 1318 + i * 250, 0.3, 'sine', 0.05, d)); },
+  };
+
+  /* ---------- 絵の入れ物 ---------- */
+  const stage = $('stage'), view = $('view'), vx = view.getContext('2d');
+  const loCv = mk(E.W, E.H), loCtx = loCv.getContext('2d'), loImg = loCtx.createImageData(E.W, E.H);                                          // 動いている間の地図（512×256）
+  const hiCv = mk(E.W * 2, E.H * 2), hiCtx = hiCv.getContext('2d', { willReadFrequently: true }), hiImg = hiCtx.createImageData(E.W * 2, E.H * 2), hi32 = new Uint32Array(hiImg.data.buffer);   // 止まっている時の地図（1024×512）
+  const TEXW = 2048, TEXH = 1024, texCv = mk(TEXW, TEXH), texCtx = texCv.getContext('2d', { willReadFrequently: true });                      // 地球儀に貼る絵（地図をなめらかに2倍にしたもの）
+  let tex32 = null, texStale = true, mapCv = hiCv;
+  const MO = 460, moCv = mk(MO, MO), moCtx = moCv.getContext('2d'), moImg = moCtx.createImageData(MO, MO), mo32 = new Uint32Array(moImg.data.buffer);   // 地図⇔地球儀の変形用
+  let mapVer = 0;      // 地図の絵を描き直した回数（止まっている間は画面を描き直さないための目印）
+  function paintLo(opt) { P.paint(S.w, loImg.data, 1, opt); loCtx.putImageData(loImg, 0, 0); mapCv = loCv; mapVer++; }
+  let layImg = {};     // ぬり終わった地図のとりおき（種類ごと。2回目からは すぐ切りかわる）
+  function paintHi(opt) { P.paint(S.w, hiImg.data, 2, opt); hiCtx.putImageData(hiImg, 0, 0); mapCv = hiCv; texStale = true; S.shareGlobe = null; mapVer++; layImg = {}; S.lay = null; S.layer = 'land'; }
+  /* 結果画面：地図を「人口」などの色にぬり替える（平面の地図にも地球儀にも、同じ絵が出る） */
+  function layData(kind) {      // その地図に必要な計算だけをする（計算ずみなら、そのまま使う。気温と雨は、新しい計算がいらない）
+    const L = S.lay || (S.lay = {});
+    if ((kind === 'pop' || kind === 'nation' || kind === 'life') && !L.pop) Object.assign(L, E.layerPop(S.w));
+    if (kind === 'nation' && !L.nation) Object.assign(L, E.layerNation(S.w, L));
+    if (kind === 'life' && !L.life) L.life = E.layerLife(S.w, L);
+    return L;
+  }
+  function showLayer(kind) {
+    if (!layImg.land) layImg.land = hi32.slice();      // 地形の絵は、とっておく
+    if (layImg[kind]) hi32.set(layImg[kind]);
+    else { P.paint(S.w, hiImg.data, 2, { layer: { kind, data: layData(kind) } }); layImg[kind] = hi32.slice(); }
+    hiCtx.putImageData(hiImg, 0, 0); mapCv = hiCv; texStale = true; mapVer++; S.layer = kind;
+  }
+  /* 地球儀に貼る「地形」の絵（シェア画像用）。人口などの地図を見ている最中でも、とっておいた地形の絵から作る */
+  function landTex() {
+    if (S.layer === 'land' || !layImg.land) { if (texStale) buildTex(); return tex32; }
+    const keep = hi32.slice(); hi32.set(layImg.land); hiCtx.putImageData(hiImg, 0, 0); buildTex(); const t = tex32;
+    hi32.set(keep); hiCtx.putImageData(hiImg, 0, 0); tex32 = null; texStale = true; return t;      // いま見ている地図の絵にもどす（地球儀用の絵は、次に描く時に作り直す）
+  }
+  const markOn = kind => S.layer === 'land' || kind === 'cap' || kind === 'city';      // 地形のほかの地図では、栄えている所のしるしだけ出す（山と砂漠のしるしは、色のじゃまになるので）
+  function buildTex() { texCtx.clearRect(0, 0, TEXW, TEXH); texCtx.imageSmoothingEnabled = true; texCtx.imageSmoothingQuality = 'high'; texCtx.drawImage(hiCv, 0, 0, TEXW, TEXH); tex32 = new Uint32Array(texCtx.getImageData(0, 0, TEXW, TEXH).data.buffer); texStale = false; }
+
+  /* ---------- 舞台の大きさと、地図・地球儀を描く場所 ---------- */
+  /* 絵は画面いっぱいの1枚（#view）に描く。地図や地球儀を描く場所は「舞台」（#stage）の位置から決め、
+     画面の並びが変わった時（カード→結果など）は、すっと追いかけて動く */
+  let VW = 1, VH = 1, DPR = 1;
+  const appEl = $('app'), elView = $('btnView'), geo = { fx: 0, fy: 0, fw: 100, gx: 0, gy: 0, gR: 50, ready: false }, vb = { x: 0, y: 0, ready: false };
+  function fit(dt) {
+    const ar = appEl.getBoundingClientRect(), sr = stage.getBoundingClientRect(); VW = Math.max(1, ar.width); VH = Math.max(1, ar.height);
+    DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(4e6 / (VW * VH))));          // 絵の細かさ：画面の2倍まで（とても広い画面では、重くならないように少し下げる）
+    const w = Math.round(VW * DPR), h = Math.round(VH * DPR); if (view.width !== w || view.height !== h) { view.width = w; view.height = h; }
+    const hh = elHint.hidden ? 0 : elHint.offsetHeight, sx = sr.left - ar.left, sy = sr.top - ar.top, top = 30, bot = Math.max(40, hh + 10), ah = Math.max(60, sr.height - top - bot), fw = Math.min(sr.width, ah * 2);
+    /* 結果画面の切りかえボタン：地球儀の右下のすぐそばに置く（地球儀は丸いので、ななめ下は空いている）。地図で見ている時は、地図の右下。
+       舞台がせまくて置き場所が足りない時は、ボタンに重ならない大きさまで地球儀を小さくする（lim） */
+    let lim = 1e9;
+    if (elView.hidden) vb.ready = false;
+    else {
+      const bw = elView.offsetWidth, bh = elView.offsetHeight, R0 = Math.min(sr.width * 0.47, (sr.height - 16) * 0.47), mx = Math.max(0, sr.width - bw), my = Math.max(0, sr.height - bh - 2);
+      const gx = clamp(sr.width / 2 + R0 * 0.74 + 4, 0, mx), gy = clamp(sr.height / 2 + R0 * 0.74 + 4, 0, my), map = S.view === 'map';
+      const tx = map ? clamp((sr.width - fw) / 2 + fw - bw, 0, mx) : gx, ty = map ? clamp(top + (ah - fw / 2) / 2 + fw / 2 + 6, 0, my) : gy, kb = vb.ready ? 1 - Math.exp(-dt * 12) : 1;
+      vb.x += (tx - vb.x) * kb; vb.y += (ty - vb.y) * kb; vb.ready = true;
+      const px = Math.round(vb.x) + 'px', py = Math.round(vb.y) + 'px'; if (elView.style.left !== px) elView.style.left = px; if (elView.style.top !== py) elView.style.top = py;
+      lim = Math.hypot(Math.max(0, gx - sr.width / 2, sr.width / 2 - (gx + bw)), Math.max(0, gy - sr.height / 2, sr.height / 2 - (gy + bh))) - 5;
+    }
+    const tg = { fx: sx + (sr.width - fw) / 2, fy: sy + top + (ah - fw / 2) / 2, fw, gx: sx + sr.width / 2, gy: sy + sr.height / 2, gR: Math.max(40, Math.min(sr.width * 0.47, (sr.height - 16) * 0.47, lim)) };
+    const k = geo.ready ? 1 - Math.exp(-dt * 10) : 1; for (const key in tg) geo[key] += (tg[key] - geo[key]) * k; geo.ready = true;
+  }
+  const flatRect = () => ({ x: geo.fx, y: geo.fy, w: geo.fw, h: geo.fw / 2 });
+  const globeGeom = () => ({ cx: geo.gx, cy: geo.gy, R: geo.gR });
+  const toGrid = (px, py, r) => { const gx = (px - r.x) / r.w * E.W, gy = (py - r.y) / r.h * E.H; return gx >= 0 && gx < E.W && gy >= 0 && gy < E.H ? { x: gx, y: gy } : null; };
+  const toScreen = (gx, gy, r) => ({ x: r.x + (gx + 0.5) / E.W * r.w, y: r.y + (gy + 0.5) / E.H * r.h });
+
+  /* ---------- しるしの形（地図にも地球儀にも同じ形で描く） ---------- */
+  function star(c, x, y, r) { c.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } c.closePath(); }
+  function drawMark(c, kind, x, y, s, a) {       // kind: cap（いちばん栄えている所）| city（栄えている所）| peak（大きな山）| desert（砂漠）
+    c.save(); c.globalAlpha *= a; c.lineJoin = 'round';
+    if (kind === 'cap') { star(c, x, y, 9.5 * s); c.lineWidth = 4 * s; c.strokeStyle = '#1b1300'; c.stroke(); c.fillStyle = '#ffd24a'; c.fill(); }
+    else if (kind === 'city') { c.beginPath(); c.arc(x, y, 3.6 * s, 0, TAU); c.lineWidth = 2.6 * s; c.strokeStyle = '#151a2e'; c.stroke(); c.fillStyle = '#ffffff'; c.fill(); }
+    else if (kind === 'peak') { c.beginPath(); c.moveTo(x, y - 7 * s); c.lineTo(x + 6.5 * s, y + 4.5 * s); c.lineTo(x - 6.5 * s, y + 4.5 * s); c.closePath(); c.lineWidth = 3 * s; c.strokeStyle = '#231a12'; c.stroke(); c.fillStyle = '#f4f1ea'; c.fill(); }
+    else { c.beginPath(); c.moveTo(x, y - 6 * s); c.lineTo(x + 6 * s, y); c.lineTo(x, y + 6 * s); c.lineTo(x - 6 * s, y); c.closePath(); c.lineWidth = 3 * s; c.strokeStyle = '#3a2600'; c.stroke(); c.fillStyle = '#f2b544'; c.fill(); }
+    c.restore();
+  }
+  function markList() {            // しるしを、出す順番に並べる
+    const m = S.w.marks, out = []; if (!m) return out;
+    if (m.capital) out.push({ kind: 'cap', x: m.capital.x, y: m.capital.y });
+    m.cities.forEach(p => out.push({ kind: 'city', x: p.x, y: p.y })); m.peaks.forEach(p => out.push({ kind: 'peak', x: p.x, y: p.y })); m.deserts.forEach(p => out.push({ kind: 'desert', x: p.x, y: p.y }));
+    return out;
+  }
+
+  /* ---------- 平面の地図を描く ---------- */
+  function roundRect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+  function drawFlat(t, alpha) {
+    const r = flatRect(), sh = S.shake > 0 ? S.shake : 0, ox = sh ? (Math.random() - 0.5) * sh * 7 : 0, oy = sh ? (Math.random() - 0.5) * sh * 7 : 0;
+    vx.save(); vx.globalAlpha = alpha; vx.translate(ox, oy);
+    roundRect(vx, r.x, r.y, r.w, r.h, Math.min(12, r.w * 0.03)); vx.save(); vx.clip();
+    vx.imageSmoothingEnabled = true; vx.imageSmoothingQuality = 'high'; vx.drawImage(mapCv, r.x, r.y, r.w, r.h);
+    if (S.cross > 0 && mapCv === hiCv) { vx.globalAlpha = alpha * S.cross; vx.drawImage(loCv, r.x, r.y, r.w, r.h); vx.globalAlpha = alpha; }     // 動き終わった直後：粗い絵から きれいな絵へ ふわっと切りかえる
+    drawFx(t, r); drawPreview(r); vx.restore();
+    roundRect(vx, r.x, r.y, r.w, r.h, Math.min(12, r.w * 0.03)); vx.lineWidth = 1; vx.strokeStyle = 'rgba(170,190,255,0.35)'; vx.stroke();
+    // しるし
+    if (S.fin) { const list = S.fin.marks; for (let i = 0; i < list.length; i++) { const m = list[i], age = t - S.fin.t0 - m.at; if (age < 0 || !markOn(m.kind)) continue; const p = toScreen(m.x, m.y, r), k = age < 0.35 ? easeBack(age / 0.35) : 1;
+      if (m.kind === 'cap' && age < 1.2) { vx.save(); vx.globalAlpha = alpha * (1 - age / 1.2); vx.strokeStyle = '#ffd24a'; vx.lineWidth = 2; vx.beginPath(); vx.arc(p.x, p.y, 8 + age * 46, 0, TAU); vx.stroke(); vx.restore(); }
+      drawMark(vx, m.kind, p.x, p.y, k * Math.max(0.85, Math.min(1.25, r.w / 420)), alpha); } }
+    vx.restore();
+  }
+
+  /* ---------- カードごとの演出（地図の上に重ねる） ---------- */
+  function drawFx(t, r) {
+    const a = S.anim; if (!a) return; const u = clamp((t - a.t0) / a.dur, 0, 1), id = a.id, p = toScreen(a.ev.x, a.ev.y, r), sx = r.w / E.W, kx = E.lonScale(a.ev.y);
+    vx.save();
+    if (id === 'meteor') {
+      if (u < 0.3) { const k = u / 0.3, x0 = p.x + r.w * 0.34, y0 = p.y - r.w * 0.3, x = lerp(x0, p.x, k * k), y = lerp(y0, p.y, k * k), g = vx.createLinearGradient(x, y, x + (x0 - p.x) * 0.3, y + (y0 - p.y) * 0.3); g.addColorStop(0, 'rgba(255,240,200,1)'); g.addColorStop(1, 'rgba(255,140,60,0)');
+        vx.strokeStyle = g; vx.lineWidth = 5; vx.lineCap = 'round'; vx.beginPath(); vx.moveTo(x, y); vx.lineTo(x + (x0 - p.x) * 0.3, y + (y0 - p.y) * 0.3); vx.stroke(); vx.fillStyle = '#fff'; vx.beginPath(); vx.arc(x, y, 4.5, 0, TAU); vx.fill(); }
+      else { const k = (u - 0.3) / 0.7, rad = (8 + 44 * easeOut(k)) * sx; vx.globalAlpha = (1 - k) * 0.9; vx.strokeStyle = '#fff3d0'; vx.lineWidth = 3; vx.beginPath(); vx.ellipse(p.x, p.y, rad / kx, rad, 0, 0, TAU); vx.stroke();
+        if (k < 0.25) { vx.globalAlpha = 1 - k / 0.25; vx.fillStyle = '#ffffff'; vx.fillRect(r.x, r.y, r.w, r.h); } }
+    } else if (id === 'volcano') {
+      const g = vx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 30 * sx); g.addColorStop(0, `rgba(255,150,60,${0.75 * Math.sin(u * Math.PI)})`); g.addColorStop(1, 'rgba(255,90,30,0)'); vx.fillStyle = g; vx.beginPath(); vx.arc(p.x, p.y, 30 * sx, 0, TAU); vx.fill();
+      for (let i = 0; i < 6; i++) { const k = (u * 1.6 + i / 6) % 1; vx.globalAlpha = (1 - k) * 0.5 * Math.min(1, u * 4); vx.fillStyle = '#d8d2cc'; vx.beginPath(); vx.arc(p.x + Math.sin(i * 2.4) * 5 + k * 9, p.y - 4 - k * 34 * sx, (2.5 + k * 7) * Math.max(1, sx), 0, TAU); vx.fill(); }
+    } else if (a.ev.drawn && a.ev.pts && (id === 'rain' || id === 'drought' || id === 'uplift')) {      // なぞった時：線にそって演出を出す
+      const pts = a.ev.pts, R = Math.max(8, a.ev.rad * sx);
+      if (id === 'rain') { vx.strokeStyle = 'rgba(210,235,255,0.75)'; vx.lineWidth = 1.4; vx.globalAlpha = Math.sin(u * Math.PI);
+        for (let i = 0; i < 80; i++) { const q = pts[(i * 7) % pts.length], c = toScreen(q.x - 0.5, q.y - 0.5, r), x = c.x + (((i * 97.3) % 200) / 100 - 1) * R, y = c.y + ((((i * 53.7) + t * 260) % 200) / 100 - 1) * R; vx.beginPath(); vx.moveTo(x, y); vx.lineTo(x - 3, y + 9); vx.stroke(); } }
+      else if (id === 'drought') { const cv = bandLayer(r, 'fx|' + a.t0, pts, a.ev.rad * 1.1, '255,170,60', 1); vx.globalAlpha = 0.3 * Math.sin(u * Math.PI); vx.drawImage(cv, r.x, r.y, r.w, r.h); }
+      else { vx.globalAlpha = Math.sin(u * Math.PI) * 0.8; vx.strokeStyle = '#fff'; vx.lineWidth = 2;
+        for (let i = 0; i < 4; i++) { const q = pts[Math.min(pts.length - 1, Math.round((i + 0.5) / 4 * (pts.length - 1)))], c = toScreen(q.x - 0.5, q.y - 0.5, r), yy = c.y + R * 0.5 - ((u * 2 + i / 4) % 1) * R; vx.beginPath(); vx.moveTo(c.x - 7, yy + 5); vx.lineTo(c.x, yy); vx.lineTo(c.x + 7, yy + 5); vx.stroke(); } }
+    } else if (id === 'rain') {
+      const R = C.P.rain.R * sx * 1.25; vx.beginPath(); vx.ellipse(p.x, p.y, R / kx, R, 0, 0, TAU); vx.clip(); vx.strokeStyle = 'rgba(210,235,255,0.75)'; vx.lineWidth = 1.4; vx.globalAlpha = Math.sin(u * Math.PI);
+      for (let i = 0; i < 70; i++) { const x = p.x + (((i * 97.3) % 200) / 100 - 1) * R / kx, y = p.y + ((((i * 53.7) + t * 260) % 200) / 100 - 1) * R; vx.beginPath(); vx.moveTo(x, y); vx.lineTo(x - 3, y + 9); vx.stroke(); }
+    } else if (id === 'drought') {
+      const R = C.P.drought.R * sx * 1.3, g = vx.createRadialGradient(p.x, p.y, 0, p.x, p.y, R); g.addColorStop(0, `rgba(255,170,60,${0.4 * Math.sin(u * Math.PI)})`); g.addColorStop(1, 'rgba(255,170,60,0)'); vx.fillStyle = g; vx.beginPath(); vx.ellipse(p.x, p.y, R / kx, R, 0, 0, TAU); vx.fill();
+    } else if (id === 'iceage' || id === 'warming') {
+      const g = vx.createLinearGradient(0, r.y, 0, r.y + r.h), c = id === 'iceage' ? '210,235,255' : '255,160,70', k = 0.45 * Math.sin(u * Math.PI);
+      g.addColorStop(0, `rgba(${c},${k})`); g.addColorStop(0.5, `rgba(${c},${id === 'iceage' ? 0 : k * 0.6})`); g.addColorStop(1, `rgba(${c},${k})`); vx.fillStyle = g; vx.fillRect(r.x, r.y, r.w, r.h);
+    } else if (id === 'river' && a.ev.path.length) {
+      const q = a.ev.path[Math.min(a.ev.path.length - 1, Math.floor(u * a.ev.path.length))], h = toScreen(q.x, q.y, r); vx.fillStyle = 'rgba(190,235,255,0.95)'; vx.beginPath(); vx.arc(h.x, h.y, 4 + 2 * Math.sin(t * 20), 0, TAU); vx.fill();
+    } else if (id === 'uplift') {
+      vx.globalAlpha = Math.sin(u * Math.PI) * 0.8; vx.strokeStyle = '#fff'; vx.lineWidth = 2; const R = C.P.uplift.R * sx;
+      for (let i = 0; i < 3; i++) { const yy = p.y + R * 0.5 - ((u * 2 + i / 3) % 1) * R; vx.beginPath(); vx.moveTo(p.x - 7, yy + 5); vx.lineTo(p.x, yy); vx.lineTo(p.x + 7, yy + 5); vx.stroke(); }
+    }
+    vx.restore();
+  }
+
+  /* ---------- なぞっている途中の線（できる形の太さで見せる。長くなぞるほど細くなる） ---------- */
+  /* 帯は、いったん別の紙に「不透明」で描いてから、うすくして地図に重ねる。
+     （うすい色のまま太い線を引くと、線が重なる所だけ濃く見える環境があるため） */
+  const BAND = {          // [帯の色, ふちの色, 帯の濃さ]
+    rift: ['28,92,206', '176,216,255', 0.5], uplift: ['255,208,113', '255,236,188', 0.34], rain: ['120,200,255', '206,236,255', 0.34],
+    drought: ['255,170,70', '255,218,168', 0.36], collide: ['255,255,255', '255,255,255', 0.3] };
+  const BAND_EDGE = 0.85;                // ふちの濃さ
+  let bandCv = null, bandCx = null, inkCv = null, inkCx = null, bandKey = '';
+  function bandPath(c, pts, k, off) { c.beginPath(); for (let i = 0; i < pts.length; i++) { const x = pts[i].x * k + off, y = pts[i].y * k; if (i) c.lineTo(x, y); else c.moveTo(x, y); } }
+  function bandPaper(r) {
+    const bw = Math.max(2, Math.min(1600, Math.round(r.w * DPR))), bh = Math.max(1, Math.round(bw / 2));
+    if (!bandCv) { bandCv = mk(bw, bh); bandCx = bandCv.getContext('2d'); inkCv = mk(bw, bh); inkCx = inkCv.getContext('2d'); }
+    if (bandCv.width !== bw || bandCv.height !== bh) { bandCv.width = inkCv.width = bw; bandCv.height = inkCv.height = bh; bandKey = ''; }
+    return bw;
+  }
+  function bandInk(c, pts, k, bw, wpx, color) {        // 不透明な太い線（地図の左右のつなぎ目ぶんも描く）
+    c.lineCap = 'round'; c.lineJoin = 'round'; c.lineWidth = wpx; c.strokeStyle = color;
+    for (const off of [-bw, 0, bw]) { bandPath(c, pts, k, off); c.stroke(); }
+  }
+  /* 帯を描いた紙を返す。edge=true なら、ふち取りつき。alpha は帯の濃さ */
+  function bandLayer(r, key, pts, halfCells, rgb, alpha, edgeRgb) {
+    const bw = bandPaper(r), bh = bandCv.height, k = bw / E.W, wpx = Math.max(6, halfCells * 2 * k), e = Math.max(1.5, bw / 480);
+    key += '|' + bw; if (key === bandKey) return bandCv;
+    for (const c of [bandCx, inkCx]) { c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; c.clearRect(0, 0, bw, bh); }
+    bandInk(inkCx, pts, k, bw, wpx, `rgb(${rgb})`);
+    if (edgeRgb) {
+      bandInk(bandCx, pts, k, bw, wpx, `rgb(${edgeRgb})`);
+      bandCx.globalCompositeOperation = 'destination-out'; bandInk(bandCx, pts, k, bw, Math.max(1, wpx - e * 2), '#000');           // 中をくりぬいて、ふちだけ残す
+      bandCx.globalCompositeOperation = 'destination-in'; bandCx.fillStyle = `rgba(0,0,0,${BAND_EDGE})`; bandCx.fillRect(0, 0, bw, bh);
+      bandCx.globalCompositeOperation = 'destination-over';
+    }
+    bandCx.globalAlpha = alpha; bandCx.drawImage(inkCv, 0, 0); bandCx.globalAlpha = 1; bandCx.globalCompositeOperation = 'source-over';
+    bandKey = key; return bandCv;
+  }
+  function strokePath(r, pts, off) { vx.beginPath(); for (let i = 0; i < pts.length; i++) { const q = toScreen(pts[i].x - 0.5, pts[i].y - 0.5, r); if (i) vx.lineTo(q.x + off, q.y); else vx.moveTo(q.x + off, q.y); } }
+  function drawStroke(r, st, cancel) {
+    const river = st.id === 'river';
+    vx.save(); vx.lineCap = 'round'; vx.lineJoin = 'round'; if (cancel) vx.globalAlpha *= 0.45;
+    if (!river) { const b = BAND[st.id], cv = bandLayer(r, 'pv|' + st.id + '|' + st.pts.length + '|' + st.len.toFixed(1), C.stretch(st.id, st.pts), C.shape(st.id, st.len).half, b[0], b[2], b[1]); vx.imageSmoothingEnabled = true; vx.drawImage(cv, r.x, r.y, r.w, r.h); }      // 帯は、実際にできる形（短い線は両はしをのばした形）で見せる
+    for (const off of [-r.w, 0, r.w]) {
+      strokePath(r, st.pts, off); vx.lineWidth = river ? 6.5 : 4.5; vx.strokeStyle = '#0a1c3c'; vx.stroke();                              // 線の下じき（海の上でも陸の上でも見えるように）
+      vx.lineWidth = river ? 3.5 : 2; vx.strokeStyle = cancel ? '#ffffff' : river ? '#8fd4ff' : '#ffd071'; vx.setLineDash(cancel ? [5, 5] : []); vx.stroke(); vx.setLineDash([]);
+    }
+    const a = toScreen(st.pts[0].x - 0.5, st.pts[0].y - 0.5, r); vx.beginPath(); vx.arc(a.x, a.y, 5, 0, TAU); vx.fillStyle = '#0a1c3c'; vx.fill(); vx.beginPath(); vx.arc(a.x, a.y, 3.6, 0, TAU); vx.fillStyle = river ? '#8fd4ff' : '#ffd071'; vx.fill();          // 始点
+    if (st.full) { const b = st.pts[st.pts.length - 1], q = toScreen(b.x - 0.5, b.y - 0.5, r); vx.strokeStyle = '#ffffff'; vx.lineWidth = 2; vx.beginPath(); vx.arc(q.x, q.y, 6, 0, TAU); vx.stroke(); }   // 長さの上限まで来た
+    vx.restore();
+  }
+
+  /* ---------- カードを選んだあと、指やマウスの場所に「ここに起きる」を出す ---------- */
+  function drawPreview(r) {
+    if (S.screen !== 'play' || !S.sel || S.busy) return; const def = C.byId[S.sel], p = S.ptr, st = S.stroke;
+    vx.save();
+    if (!def.place) { if (p && p.inside) { vx.fillStyle = S.sel === 'iceage' ? 'rgba(200,230,255,0.22)' : 'rgba(255,170,80,0.2)'; vx.fillRect(r.x, r.y, r.w, r.h); } vx.restore(); return; }
+    if (st && st.id === S.sel && st.len >= C.TAP) { drawStroke(r, st, !(p && p.inside)); vx.restore(); return; }      // なぞっている途中
+    if (!p || !p.inside) { vx.restore(); return; }
+    const g = toGrid(p.x, p.y, r); if (!g) { vx.restore(); return; }
+    const sx = r.w / E.W, kx = E.lonScale(g.y), pulse = 1 + 0.05 * Math.sin(now() * 7);
+    vx.lineWidth = 2; vx.strokeStyle = '#ffd071'; vx.fillStyle = 'rgba(255,208,113,0.16)'; vx.setLineDash([6, 5]);
+    if (S.sel === 'collide' || S.sel === 'rift') {
+      const ang = C.axisAt(S.w, g.x, g.y, 70), ux = Math.cos(ang), uy = Math.sin(ang), L = C.P[S.sel].L * 0.82;
+      const ax = -uy * L / kx * sx, ay = ux * L * sx; vx.setLineDash([]); vx.lineWidth = 3; vx.lineCap = 'round';
+      for (const off of [-r.w, 0, r.w]) { vx.beginPath(); vx.moveTo(p.x + off - ax, p.y - ay); vx.lineTo(p.x + off + ax, p.y + ay); vx.stroke(); }
+      const d = S.sel === 'collide' ? -1 : 1, bx = ux / kx * sx, by = uy * sx; vx.lineWidth = 2.5;                                                   // 矢印：衝突は内向き、分裂は外向き
+      for (const sd of [-1, 1]) { const cx0 = p.x + sd * bx * 30, cy0 = p.y + sd * by * 30, cx1 = p.x + sd * bx * 13, cy1 = p.y + sd * by * 13, hx = d < 0 ? cx1 : cx0, hy = d < 0 ? cy1 : cy0, tx = d < 0 ? cx0 : cx1, ty = d < 0 ? cy0 : cy1;
+        const nx = (hx - tx), ny = (hy - ty), nl = Math.hypot(nx, ny) || 1; vx.beginPath(); vx.moveTo(tx, ty); vx.lineTo(hx, hy); vx.lineTo(hx - nx / nl * 7 - ny / nl * 5, hy - ny / nl * 7 + nx / nl * 5); vx.moveTo(hx, hy); vx.lineTo(hx - nx / nl * 7 + ny / nl * 5, hy - ny / nl * 7 - nx / nl * 5); vx.stroke(); }
+    } else if (S.sel === 'river') {
+      vx.setLineDash([]); vx.fillStyle = '#8fd4ff'; vx.strokeStyle = '#06203a'; vx.lineWidth = 2; vx.beginPath(); vx.moveTo(p.x, p.y - 12); vx.bezierCurveTo(p.x + 9, p.y - 1, p.x + 7, p.y + 7, p.x, p.y + 7); vx.bezierCurveTo(p.x - 7, p.y + 7, p.x - 9, p.y - 1, p.x, p.y - 12); vx.fill(); vx.stroke();
+    } else {
+      const R = C.P[S.sel].R * sx * pulse * (S.sel === 'rain' || S.sel === 'drought' ? 1.15 : 1);
+      for (const off of [-r.w, 0, r.w]) { vx.beginPath(); vx.ellipse(p.x + off, p.y, R / kx, R, 0, 0, TAU); vx.fill(); vx.stroke(); }
+    }
+    vx.restore();
+  }
+
+  /* ---------- 地球儀を描く ---------- */
+  const globes = {};      // 地球儀の絵の入れ物。hi＝ふだん用　lo＝指で上下に回している最中の、粗くて軽い版（傾きが変わるたびに計算し直すので）
+  function globeSet(key, D) { let o = globes[key]; if (o && o.g.D === D) return o; const cv = mk(D, D), ctx = cv.getContext('2d'), img = ctx.createImageData(D, D); o = globes[key] = { g: G.prepare(D, TEXW, TEXH, S.tilt), cv, ctx, img, u32: new Uint32Array(img.data.buffer) }; return o; }
+  const globeD = () => Math.max(160, Math.min(S.perf.globeMax, Math.round(globeGeom().R * DPR) * 2)), loD = D => Math.max(120, Math.round(D / 4) * 2);
+  function warmTilt() { globeSet('lo', loD(globeD())); }      // 粗い版を先に用意しておく（はじめて上下に回した時に引っかからないように）
+  function halo(c, cx, cy, R) { const g = c.createRadialGradient(cx, cy, R * 0.94, cx, cy, R * 1.17); g.addColorStop(0, 'rgba(120,185,255,0.5)'); g.addColorStop(0.35, 'rgba(110,175,255,0.18)'); g.addColorStop(1, 'rgba(110,175,255,0)'); c.fillStyle = g; c.beginPath(); c.arc(cx, cy, R * 1.17, 0, TAU); c.fill(); }
+  function rim(c, cx, cy, R) { const g = c.createRadialGradient(cx, cy, R * 0.8, cx, cy, R); g.addColorStop(0, 'rgba(150,205,255,0)'); g.addColorStop(1, 'rgba(150,205,255,0.3)'); c.fillStyle = g; c.beginPath(); c.arc(cx, cy, R, 0, TAU); c.fill(); }
+  function globeMarks(c, cx, cy, R, rot, s, all, pitch) {      // all＝地図の種類に関係なく、しるしを全部描く（シェア画像用）
+    const list = markList();
+    for (const m of list) { if (!all && !markOn(m.kind)) continue; const pr = G.project(E.LAT[m.y], (m.x + 0.5) / E.W * TAU - Math.PI, rot, pitch); if (pr.z < 0.1) continue; drawMark(c, m.kind, cx + pr.x * R, cy + pr.y * R, s, clamp((pr.z - 0.1) * 4, 0, 1)); }
+  }
+  function drawGlobe(t, alpha) {
+    const gg = globeGeom(), D = globeD(); if (texStale) buildTex();
+    const hi = globes.hi, turning = !!(S.drag && hi && hi.g.D === D && hi.g.pitch !== S.tilt && t - S.tiltAt < 0.18);      // 指で上下に回している最中か（止めたら、すぐ細かい版にもどす）
+    const o = turning ? globeSet('lo', loD(D)) : globeSet('hi', D); G.tilt(o.g, S.tilt);
+    const t0 = performance.now(); G.draw(o.g, o.u32, tex32, S.rot); o.ctx.putImageData(o.img, 0, 0); const ms = performance.now() - t0;
+    if (!turning && ms > 22 && S.perf.globeMax > 320) S.perf.globeMax = Math.max(320, Math.round(S.perf.globeMax * 0.85 / 2) * 2);                     // 重い端末では、地球儀を少し粗くして なめらかに回す
+    vx.save(); vx.globalAlpha = alpha; halo(vx, gg.cx, gg.cy, gg.R); vx.imageSmoothingEnabled = true; vx.imageSmoothingQuality = 'high'; vx.drawImage(o.cv, gg.cx - gg.R, gg.cy - gg.R, gg.R * 2, gg.R * 2); rim(vx, gg.cx, gg.cy, gg.R);
+    if (S.screen === 'result' || S.screen === 'finish') globeMarks(vx, gg.cx, gg.cy, gg.R, S.rot, Math.max(0.9, Math.min(1.3, gg.R / 150)), false, S.tilt);
+    vx.restore();
+  }
+  /* 平面の地図 ⇔ 地球儀 の変形の途中（e=0 平面、e=1 地球儀） */
+  function drawMorph(e, rot, pitch) {
+    const fr = flatRect(), gg = globeGeom(), k = (MO - 10) / Math.max(fr.w, gg.R * 2), size = MO / k;
+    G.morph(mo32, MO, hi32, E.W * 2, E.H * 2, e, rot, fr.w * k, gg.R * k, true, pitch); moCtx.putImageData(moImg, 0, 0);
+    const cx = lerp(fr.x + fr.w / 2, gg.cx, e), cy = lerp(fr.y + fr.h / 2, gg.cy, e);
+    vx.save(); vx.globalAlpha = e * e; halo(vx, cx, cy, gg.R); vx.globalAlpha = 1; vx.imageSmoothingEnabled = true; vx.imageSmoothingQuality = 'high'; vx.drawImage(moCv, cx - size / 2, cy - size / 2, size, size); vx.restore();
+  }
+
+  /* ============================================================
+     画面の部品（文字・カード・ボタン）
+     ============================================================ */
+  const app = appEl, elTurns = $('turns'), elHint = $('hint'), elCards = $('cards'), elLegend = $('legend'), elAwardBox = $('awardBox'), elAward = $('award'), elAwardDesc = $('awardDesc'), elNameRow = $('nameRow'), elName = $('planetName'), elActions = $('actions'), elToast = $('toast'), elDone = $('btnDone'), elLayers = $('layers');
+  const ICON = {     // カードの絵（線画）
+    collide: '<path d="M2 12h5M4.8 9.5 7.3 12l-2.5 2.5M22 12h-5M19.2 9.5 16.7 12l2.5 2.5M9.3 18l2.7-7 2.7 7"/>',
+    rift: '<path d="M9 12H3M5.5 9.5 3 12l2.5 2.5M15 12h6M18.5 9.5 21 12l-2.5 2.5M12.6 3l-1.5 4.5 2.2 3-2.4 3.3L12.4 21"/>',
+    volcano: '<path d="M3 20.5 9 10h6l6 10.5zM9.8 6.5c0-2.2 4.4-2.2 4.4 0M12 4.8V2.6"/>',
+    uplift: '<path d="M2.5 19.5h4l2-6h7l2 6h4M12 9.5V3M9.4 5.6 12 3l2.6 2.6"/>',
+    meteor: '<circle cx="8" cy="16" r="4.2"/><path d="M12.2 12.2 20.5 4M14.8 15.5l5.7-5.7M8.6 9.7 14.3 4"/>',
+    iceage: '<path d="M12 2.5v19M3.8 7.2l16.4 9.6M20.2 7.2 3.8 16.8M9.6 4.6 12 7l2.4-2.4M9.6 19.4 12 17l2.4 2.4"/>',
+    warming: '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.2v3M12 18.8v3M2.2 12h3M18.8 12h3M5 5l2.1 2.1M16.9 16.9 19 19M5 19l2.1-2.1M16.9 7.1 19 5"/>',
+    rain: '<path d="M7 14.5a4 4 0 0 1-.3-8A5.2 5.2 0 0 1 16.6 5.4 3.8 3.8 0 0 1 17 14.5zM8 17.5l-1.2 3.5M12.4 17.5 11.2 21M16.8 17.5 15.6 21"/>',
+    drought: '<circle cx="17.2" cy="6.2" r="2.8"/><path d="M2.5 14.5h19M7.5 14.5l2 3-1.2 3.5M13.5 14.5l-1.2 3 2 3.5M18.5 14.5l-.9 4"/>',
+    river: '<path d="M7 2.5c6 3-3.2 6.3 2.8 9.5S7 18.5 13 21.5M12.5 2.5c6 3-3.2 6.3 2.8 9.5s-2.8 6.5 3.2 9.5"/>',
+  };
+  const svg = inner => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+  const LEGEND = { cap: [CAP_NAME, '<path d="M12 2.5l2.9 6.3 6.6.7-5 4.6 1.5 6.7L12 17.3l-6 3.5 1.5-6.7-5-4.6 6.6-.7z" fill="#ffd24a" stroke="#1b1300"/>'], city: ['栄えている所', '<circle cx="12" cy="12" r="5" fill="#fff" stroke="#151a2e" stroke-width="2.5"/>'],
+    peak: ['大きな山', '<path d="M12 4l8 15H4z" fill="#f4f1ea" stroke="#231a12"/>'], desert: ['砂漠', '<path d="M12 4l8 8-8 8-8-8z" fill="#f2b544" stroke="#3a2600"/>'] };
+
+  function setScreen(s) { S.screen = s; app.dataset.screen = s; if (s !== 'result' && s !== 'finish') { elView.hidden = true; elLayers.hidden = true; } $('pTitle').hidden = s !== 'title' && s !== 'boot'; $('pPlay').hidden = s !== 'play' && s !== 'unwrap'; $('pResult').hidden = s !== 'finish' && s !== 'result'; }
+  const allHints = () => Object.values(PICK_HINT).concat(Object.values(DONE_HINT), Object.values(MSG), C.LIST.map(c => c.name + '！'), LAYERS.map(l => l[2]).filter(Boolean));      // 案内に出る文の全部（字の準備と、テストで使う）
+  function setHint(msg, pop) { if (!msg) { elHint.hidden = true; return; } elHint.hidden = false; elHint.textContent = msg; if (pop) { elHint.classList.remove('pop'); void elHint.offsetWidth; elHint.classList.add('pop'); } }
+  /* 結果画面の右下のボタン：地球儀を見ている時は「地図で見る」、地図を見ている時は「地球儀で見る」（せまい画面では短く「地図」「地球儀」） */
+  const VIEW_ICON = { map: '<path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5zM9 4v13.5M15 6.5V20"/>', globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.2 3.4 3.2 14.6 0 18M12 3c-3.2 3.4-3.2 14.6 0 18"/>' };
+  function renderView() { const toMap = S.view !== 'map', short = toMap ? '地図' : '地球儀'; elView.setAttribute('aria-label', short + 'で見る'); elView.innerHTML = svg(VIEW_ICON[toMap ? 'map' : 'globe']) + `<span class="s">${short}</span><span class="l">${short}で見る</span>`; }
+  let toastTimer = 0;
+  function toast(msg, ms) { elToast.textContent = msg; elToast.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { elToast.hidden = true; }, ms || 2600); }
+  function renderTurns() {      // 「あと◯回」と「これで完成」ボタン（カードが動いている間は押せない）
+    const on = S.screen === 'play' && S.turn >= 1 && S.turn <= TURNS; elDone.hidden = !on; elDone.disabled = !!S.anim;
+    if (!on) { elTurns.hidden = true; return; }
+    elTurns.hidden = false; let pips = ''; for (let i = 1; i <= TURNS; i++) pips += `<i class="${i < S.turn ? 'done' : i === S.turn ? 'now' : ''}"></i>`;
+    elTurns.innerHTML = `<span>あと <b>${TURNS - S.turn + 1}</b> 回</span><span class="pips" aria-hidden="true">${pips}</span>`;
+  }
+  function renderMute() { const b = $('btnMute'); b.setAttribute('aria-pressed', muted ? 'true' : 'false'); b.setAttribute('aria-label', muted ? '音を出す' : '音を消す');
+    b.innerHTML = svg('<path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z" fill="currentColor"/>' + (muted ? '<path d="M16 9.5l5 5M21 9.5l-5 5"/>' : '<path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.6 7.6 0 0 1 0 11"/>')); }
+
+  /* ---------- カードを配る・選ぶ ---------- */
+  /* 配り方：10枚の山札を切って、上から3枚。選んだカードは山札のどこかにもどる（＝あとでまた出てくる）。
+     選ばなかった2枚は捨て札になり、山札がなくなったら切り直して使う。同じカードを使えるのは MAX_USE 回まで */
+  function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0, x = a[i]; a[i] = a[j]; a[j] = x; } return a; }
+  function deal() {
+    const hand = [];
+    while (hand.length < HAND) { if (!S.deck.length) { S.deck = shuffle(S.discard); S.discard = []; if (!S.deck.length) break; } hand.push(S.deck.pop()); }
+    S.hand = hand; S.sel = null; S.busy = false; elCards.classList.remove('locked'); elCards.textContent = '';
+    hand.forEach(id => { const c = C.byId[id], b = document.createElement('button'); b.type = 'button'; b.className = 'card'; b.dataset.id = id; b.setAttribute('aria-pressed', 'false');
+      b.innerHTML = `<span class="card-ico">${svg(ICON[id])}</span><span class="card-name"></span><span class="card-desc"></span><span class="card-tag"></span>` + (S.uses[id] ? '<span class="card-again">2回目</span>' : '');
+      b.querySelector('.card-name').textContent = c.name; b.querySelector('.card-desc').textContent = c.desc; b.querySelector('.card-tag').textContent = !c.place ? '世界ぜんたい' : c.draw ? 'なぞって描く' : '場所をえらぶ';
+      onTap(b, () => selectCard(id)); elCards.appendChild(b); });
+    renderTurns(); setHint(hand.some(id => S.uses[id]) ? MSG.pickAgain : MSG.pick, true); sfx.deal();
+  }
+  function usedCard(id) {       // 使ったカードを山札にもどす（MAX_USE 回使ったら、もう出てこない）
+    S.uses[id] = (S.uses[id] || 0) + 1; S.hand.forEach(c => { if (c !== id) S.discard.push(c); });
+    if (S.uses[id] < MAX_USE) S.deck.splice((Math.random() * (S.deck.length + 1)) | 0, 0, id);
+  }
+  function selectCard(id) {
+    if (S.busy || S.screen !== 'play') return; audioInit(); S.sel = id; dropTouch(); sfx.pick();      // 地図をなぞっている途中でカードを選び直した時は、その線は使わない
+    elCards.querySelectorAll('.card').forEach(b => b.setAttribute('aria-pressed', b.dataset.id === id ? 'true' : 'false')); setHint(PICK_HINT[id], true);
+  }
+
+  /* ---------- カードを使う：地形がなめらかに変わる ---------- */
+  const landCells = () => { const h = S.w.h, sea = S.w.sea; let n = 0; for (let i = 0; i < E.N; i++) if (h[i] > sea) n++; return n; };
+  function playCard(id, gx, gy, stroke) {       // stroke＝なぞった線（[{x,y}]）。なければ (gx,gy) をタップした時の形
+    if (S.busy || S.screen !== 'play') return;
+    const def = C.byId[id], drawn = !!(stroke && def.draw && C.strokeLen(stroke) >= C.TAP);
+    if (id === 'river' || id === 'rift') { const ok = drawn ? C.touchesLand(S.w, stroke, id === 'river' ? 40 : 30) : !!C.nearestLand(S.w, gx, gy, id === 'river' ? 80 : 60);      // 何も起きない場所では使わせない
+      if (!ok) { setHint(MSG.noLand, true); sfx.no(); return; } }
+    const sea = drawn ? !C.touchesLand(S.w, stroke, 6) : S.w.h[Math.floor(gy) * E.W + Math.floor(gx)] <= S.w.sea, far = (id === 'rain' || id === 'drought') && (drawn ? !C.touchesLand(S.w, stroke, C.shape(id, C.strokeLen(stroke)).half) : sea && !C.nearestLand(S.w, gx, gy, C.P[id].R));
+    const land0 = landCells(), ev = C.make(S.w, id, gx, gy, drawn ? { stroke } : null);
+    if (id === 'river' && ev.path.length < C.RIVER_MIN) { setHint(MSG.shortRiver, true); sfx.no(); return; }      // 陸がせまくて川にならない所では使わせない（カードは減らない）
+    S.busy = true; elCards.classList.add('locked');
+    S.anim = { ev, id, t0: now(), dur: DUR[id] * (ev.drawn ? 1.25 : 1), frame: 0, sea, far, land0 }; S.ptr = null; S.stroke = null; sfx[id](); setHint(def.name + '！', true); usedCard(id); renderTurns();
+  }
+  /* カードを使ったあとの一言（海に使った時などは、起きたことに合わせて変える） */
+  function doneHint(a) {
+    const id = a.id, grew = landCells() > a.land0 + 4;
+    if (id === 'volcano' && a.sea) return MSG.volcSea;
+    if (id === 'meteor' && a.sea) { const c = S.w.craters[S.w.craters.length - 1], kx = E.lonScale(c.y); let vis = 0; for (let k = 0; k < 16; k++) { const an = k * Math.PI / 8, y = clamp(Math.round(c.y + Math.sin(an) * c.r), 0, E.H - 1), x = E.wrapX(Math.round(c.x + Math.cos(an) * c.r / kx)); if (S.w.h[y * E.W + x] > S.w.sea) vis++; }
+      return vis >= 5 ? MSG.ringIsle : MSG.meteorSea; }
+    if (id === 'uplift' && landCells() > a.land0 + 150) return MSG.newLand;
+    if (id === 'collide' && a.sea) return grew ? MSG.seaIsle : MSG.seaRidge;
+    if (id === 'rain' && a.far) return MSG.rainSea;
+    if (id === 'drought' && a.far) return MSG.droughtSea;
+    return DONE_HINT[id];
+  }
+  function animStep(t) {
+    const a = S.anim, u = clamp((t - a.t0) / a.dur, 0, 1), id = a.id;
+    if (u < 1) {
+      const k = id === 'meteor' ? easeOut((u - 0.3) / 0.35) : (id === 'river' || a.ev.drawn) ? u : easeIO(u), t0 = performance.now();      // なぞった時は、線の始点から終点へ順に変わる（カードの側でなめらかにする）
+      a.ev.apply(k); a.frame++; if (!S.perf.skip || (a.frame & 1)) E.climate(S.w);
+      const warp = id === 'collide' || id === 'rift' || id === 'iceage' || id === 'warming';
+      paintLo({ riverFade: warp ? 1 - E.smooth(0, 0.3, u) : 1, part: id === 'river' ? { path: a.ev.path, shown: a.ev.shown } : null, volcGrow: id === 'volcano' ? { x: a.ev.x, y: a.ev.y, r: C.P.volcano.R, t: k } : null });
+      if (performance.now() - t0 > 30) S.perf.skip = true;                              // 重い端末では、雨の計算を1コマおきにする
+      S.shake = id === 'collide' || id === 'rift' ? 0.5 * Math.sin(u * Math.PI) : id === 'meteor' ? (u > 0.3 ? Math.max(0, 1 - (u - 0.3) / 0.3) : 0) : id === 'volcano' || id === 'uplift' ? 0.3 * Math.sin(u * Math.PI) : 0;
+    } else if (!a.done) {       // 動き終わり：まず地形を確定して、粗い絵のまま1コマ見せる（重い計算を2コマに分けて、引っかかりを小さくする）
+      C.commit(S.w, a.ev); paintLo(); a.done = true; S.shake = 0;
+    } else {                    // 次のコマで、きれいな絵に描き直す
+      paintHi(); S.cross = 1; S.anim = null; S.turn++;
+      setHint(doneHint(a), true); renderTurns();
+      if (S.turn > TURNS) S.next = { at: t + 1.5, fn: startFinish }; else S.next = { at: t + 1.15, fn: deal };
+    }
+  }
+
+  /* ---------- 完成：しるし → 称号 → 地球儀 ---------- */
+  function finishNow() {      // 「これで完成」：カードを使い切らなくても（1枚も使わなくても）、ここで完成にする
+    if (S.screen !== 'play' || S.anim || S.restarting || S.turn < 1) return; audioInit(); dropTouch(); S.ptr = null; S.sel = null; S.next = null; S.busy = true; elCards.classList.add('locked'); startFinish();
+  }
+  function startFinish() {
+    E.finish(S.w); S.award = T.judge(S.w.stats); setScreen('finish'); elView.hidden = true; elLayers.hidden = true; elLayers.classList.remove('fade-in', 'ghost'); elLegend.classList.remove('tall'); renderTurns(); elLegend.textContent = ''; elAwardBox.hidden = true; elNameRow.hidden = true; elActions.hidden = true; elNameRow.classList.remove('fade-in', 'ghost'); elActions.classList.remove('fade-in', 'ghost');
+    const list = markList(); let at = 0.8, prev = '';
+    list.forEach(m => { if (prev && prev !== m.kind) at += 0.28; m.at = at; at += 0.2; prev = m.kind; });
+    S.fin = { t0: now(), marks: list, played: 0, awardAt: at + 0.9, morphAt: at + 2.7, award: false, morph: false };
+    setHint(MSG.finish, true); sfx.done();
+  }
+  function legendAdd(kind) {
+    if (elLegend.querySelector(`[data-k="${kind}"]`)) return; const li = document.createElement('li'); li.dataset.k = kind;
+    li.innerHTML = `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linejoin="round" aria-hidden="true">${LEGEND[kind][1]}</svg><span></span>`; li.querySelector('span').textContent = LEGEND[kind][0]; elLegend.appendChild(li);
+  }
+  /* 結果画面：地図の種類のボタンと、色の見本 */
+  const rgb = c => `rgb(${c[0]},${c[1]},${c[2]})`, sw = c => `<i class="sw" style="background:${rgb(c)}"></i>`;
+  const rampLi = (lo, hi, st) => `<li class="lg-ramp"><span>${lo}</span><i class="bar" style="background:linear-gradient(90deg,${st.map(a => `rgb(${a[1]},${a[2]},${a[3]}) ${Math.round(a[0] * 100)}%`).join(',')})"></i><span>${hi}</span></li>`;
+  const peopleText = p => p < 0.05 ? 'ほぼ0人' : p < 1 ? '1億人より少ない' : 'およそ' + Math.round(p) + '億人';
+  function renderLayers() {
+    if (!elLayers.firstChild) LAYERS.forEach(([k, name]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'layer-btn'; b.dataset.k = k; b.textContent = name; onTap(b, () => setLayer(k)); elLayers.appendChild(b); });
+    elLayers.querySelectorAll('.layer-btn').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === S.layer ? 'true' : 'false'));
+  }
+  function renderLegend() {
+    const k = S.layer, L = S.lay || {}; elLegend.dataset.layer = k;
+    if (k === 'land') { elLegend.textContent = ''; const seen = {}; (S.fin ? S.fin.marks : []).forEach(m => { if (!seen[m.kind]) { seen[m.kind] = 1; legendAdd(m.kind); } }); return; }
+    elLegend.innerHTML = k === 'pop' ? rampLi('少ない', '多い', P.RAMP.pop) + `<li><span>世界の人口 <b>${peopleText(L.people)}</b></span></li>`
+      : k === 'temp' ? rampLi('寒い', '暑い', P.RAMP.temp)
+      : k === 'rain' ? rampLi('雨が少ない', '雨が多い', P.RAMP.rain)
+      : k === 'nation' ? (L.nations ? `<li><span class="sws">${P.NATION.slice(0, 4).map(sw).join('')}</span><span>国（ぜんぶで<b>${L.nations}か国</b>）</span></li><li>${sw(P.NO_NATION)}どの国でもない土地</li>` : `<li>${sw(P.NO_NATION)}国ができるほど、住みやすい土地がない</li>`)
+      : LIFE_NAME.map(([n, name]) => `<li>${sw(P.LIFE_COL[n])}${name}</li>`).join('');
+  }
+  let layerTimer = 0, capTimer = 0;
+  function setLayer(kind) {      // 地図の種類を切りかえる。ボタンの見た目は すぐ変えて、ぬり替え（少し重い）は そのすぐ後にする
+    if (S.screen !== 'result' || S.restarting || kind === S.layerWant || !LAYERS.some(l => l[0] === kind)) return; audioInit(); sfx.ui(); S.layerWant = kind;
+    elLayers.querySelectorAll('.layer-btn').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === kind ? 'true' : 'false'));
+    const cap = LAYERS.find(l => l[0] === kind)[2]; clearTimeout(capTimer); setHint(cap, true); if (cap) capTimer = setTimeout(() => { if (S.screen === 'result' && elHint.textContent === cap) setHint('', false); }, 4500);
+    clearTimeout(layerTimer); layerTimer = setTimeout(() => {
+      if (S.screen !== 'result' || S.layerWant !== kind) return;
+      try { showLayer(kind); } catch (e) { S.layerWant = S.layer; }
+      renderLayers(); renderLegend();
+    }, 20);
+  }
+  function showAward() { elAward.textContent = S.award.name; elAwardDesc.textContent = S.award.desc; elAwardBox.hidden = false; elAward.classList.remove('reveal'); void elAward.offsetWidth; elAward.classList.add('reveal'); setHint('', false); }
+  function finStep(t) {
+    const f = S.fin, e = t - f.t0;
+    while (f.played < f.marks.length && e >= f.marks[f.played].at) { const m = f.marks[f.played]; legendAdd(m.kind); sfx.mark(f.played); f.played++; }
+    if (!f.award && e >= f.awardAt) { f.award = true; showAward(); sfx.award(); }
+    if (!f.morph && e >= f.morphAt) { f.morph = true; S.morph = { t0: t, dur: 1.5, from: 0, to: 1, rot0: 0, pitch: S.tilt }; app.dataset.screen = 'result'; elNameRow.hidden = false; elActions.hidden = false; elNameRow.classList.add('ghost'); elActions.classList.add('ghost'); S.layerWant = 'land'; renderLayers(); elLayers.hidden = false; elLayers.classList.add('ghost'); elLegend.classList.add('tall'); S.view = 'globe'; renderView(); elView.hidden = false; elView.classList.add('ghost'); sfx.globe(); }      // 舞台を地球儀用の広さにしてから丸める（名前の欄とボタンは、場所だけ先に取っておく）
+  }
+  function toResult() {
+    setScreen('result'); S.rot = 0; S.morph = null; elNameRow.hidden = false; elActions.hidden = false; elNameRow.classList.remove('ghost'); elActions.classList.remove('ghost'); elNameRow.classList.add('fade-in'); elActions.classList.add('fade-in');
+    S.view = 'globe'; renderView(); elView.hidden = false; elView.classList.remove('ghost');
+    S.layerWant = S.layer; renderLayers(); elLayers.hidden = false; elLayers.classList.remove('ghost'); elLayers.classList.add('fade-in'); elLegend.classList.add('tall');
+    if (S.spun) setHint('', false); else { setHint(MSG.spin, true); setTimeout(() => { if (S.screen === 'result' && elHint.textContent === MSG.spin) setHint('', false); }, 6000); }      // まだ自分で回したことがない人には、回せることを少しの間だけ知らせる
+    setTimeout(() => { if (S.screen === 'result') { try { warmTilt(); if (!S.shareGlobe) S.shareGlobe = makeShareGlobe(); } catch (e) { /* 画像が作れなくても遊びは続く */ } } }, 700);
+    const w = S.w; ['pop', 'nation', 'life'].forEach((k, i) => setTimeout(() => { if (S.screen === 'result' && S.w === w) { try { layData(k); } catch (e) { /* 押された時に、もう一度ためす */ } } }, 1000 + i * 300));      // 人口・国・くらしを、少しずつ先に計算しておく（ボタンを押した時に待たせないように。3回に分けるのは、地球儀の動きを止めないため）
+  }
+  /* 結果画面：地球儀 ⇔ 平面の地図 を切りかえる（地球儀がひらいて地図になる・地図が丸まって地球儀になる） */
+  function toggleView() {
+    if (S.screen !== 'result' || S.morph || S.restarting) return; audioInit(); sfx.flip(S.view === 'globe'); S.drag = null; if (elHint.textContent === MSG.spin) setHint('', false);
+    if (S.view === 'globe') { let r0 = S.rot % TAU; if (r0 > Math.PI) r0 -= TAU; else if (r0 < -Math.PI) r0 += TAU; S.morph = { t0: now(), dur: 1.0, from: 1, to: 0, rot0: r0, pitch: S.tilt, done() { S.view = 'map'; S.tilt = G.PITCH; renderView(); } }; }
+    else S.morph = { t0: now(), dur: 1.0, from: 0, to: 1, rot0: 0, pitch: G.PITCH, done() { S.rot = 0; S.tilt = G.PITCH; S.view = 'globe'; renderView(); } };      // 地球儀にもどる時は、いつもの傾きから
+  }
+  function skipFinish() { const f = S.fin; if (!f || S.screen !== 'finish') return; f.marks.forEach(m => legendAdd(m.kind)); f.played = f.marks.length; if (!f.award) { f.award = true; showAward(); } f.morph = true; f.t0 = now() - 99; toResult(); }
+
+  /* ---------- はじめる・もう1回 ---------- */
+  function newWorld(seed) { S.seed = seed || ((Math.random() * 2147483646) | 0) + 1; S.w = E.newWorld(S.seed); S.turn = 0; S.fin = null; S.award = null; S.anim = null; S.next = null; S.deck = shuffle(C.LIST.map(c => c.id)); S.discard = []; S.uses = {}; S.shareGlobe = null; paintHi(); }
+  function start() {
+    if (S.screen !== 'title') return; audioInit(); sfx.ui(); setScreen('unwrap'); elCards.textContent = '';
+    let r0 = S.rot % TAU; if (r0 > Math.PI) r0 -= TAU; else if (r0 < -Math.PI) r0 += TAU;
+    S.morph = { t0: now(), dur: 1.25, from: 1, to: 0, rot0: r0, pitch: S.tilt }; S.drag = null; sfx.globe();
+  }
+  function beginPlay() { S.morph = null; S.rot = 0; S.tilt = G.PITCH; S.view = 'globe'; S.drag = null; S.turn = 1; setScreen('play'); deal(); }
+  function again() {
+    if (S.screen !== 'result' || S.restarting) return; S.restarting = true; audioInit(); sfx.ui(); toast('新しい地球をつくっています…', 1200); elName.value = ''; S.name = '';
+    setTimeout(() => { newWorld(0); S.fade = now(); beginPlay(); S.restarting = false; }, 40);      // 先に「つくっています」を見せてから、地球をつくる（少し時間がかかる）
+  }
+
+  /* ---------- 画像の保存とシェア ---------- */
+  const FONT_D = '"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif', FONT_B = '"Zen Kaku Gothic New","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo","Noto Sans JP",sans-serif';
+  function makeShareGlobe() {      // シェア画像用の大きな地球儀（いちばん栄えている所が正面に来る向き）。いつも「地形」の絵で作る
+    const tex = landTex(), D = 760, g = G.prepare(D, TEXW, TEXH), cv = mk(D, D), c = cv.getContext('2d'), img = c.createImageData(D, D), cap = S.w.marks && S.w.marks.capital;
+    const rot = cap ? (cap.x + 0.5) / E.W * TAU - Math.PI - 0.25 : S.rot; G.draw(g, new Uint32Array(img.data.buffer), tex, rot); c.putImageData(img, 0, 0); return { cv, rot };
+  }
+  function fitText(c, text, maxW, size, font, weight) { let s = size; do { c.font = `${weight} ${s}px ${font}`; if (c.measureText(text).width <= maxW) break; s -= 2; } while (s > 20); return s; }
+  function composeShare() {
+    const cv = mk(1080, 1350), c = cv.getContext('2d'), bg = c.createLinearGradient(0, 0, 0, 1350); bg.addColorStop(0, '#050816'); bg.addColorStop(1, '#111b42'); c.fillStyle = bg; c.fillRect(0, 0, 1080, 1350);
+    const r = E.rng(S.seed || 7); for (let i = 0; i < 170; i++) { c.globalAlpha = 0.25 + r() * 0.7; c.fillStyle = r() < 0.2 ? '#ffe9c2' : '#ffffff'; const s = 1 + r() * 2.4; c.fillRect(r() * 1080, r() * 1350, s, s); } c.globalAlpha = 1;
+    if (!S.shareGlobe) S.shareGlobe = makeShareGlobe();
+    const R = 390, cx = 540, cy = 505; halo(c, cx, cy, R); c.drawImage(S.shareGlobe.cv, cx - R, cy - R, R * 2, R * 2); rim(c, cx, cy, R); globeMarks(c, cx, cy, R, S.shareGlobe.rot, 2.5, true);
+    const cap = S.w.marks && S.w.marks.capital; c.textAlign = 'center'; c.textBaseline = 'middle';
+    if (cap) { const pr = G.project(E.LAT[cap.y], (cap.x + 0.5) / E.W * TAU - Math.PI, S.shareGlobe.rot); if (pr.z > 0.1) { c.font = `900 30px ${FONT_B}`; c.lineJoin = 'round'; c.lineWidth = 8; c.strokeStyle = 'rgba(8,12,28,0.85)'; c.strokeText(CAP_NAME, cx + pr.x * R, cy + pr.y * R + 46); c.fillStyle = '#ffffff'; c.fillText(CAP_NAME, cx + pr.x * R, cy + pr.y * R + 46); } }
+    const nm = S.name.trim(); let y = 1000;
+    if (nm) { const s = fitText(c, nm, 960, 58, FONT_B, 900); c.font = `900 ${s}px ${FONT_B}`; c.fillStyle = '#ffffff'; c.fillText(nm, 540, y); y += 100; } else y += 46;
+    const s2 = fitText(c, S.award.name, 980, 104, FONT_D, 800); c.font = `800 ${s2}px ${FONT_D}`; c.fillStyle = '#ffd071'; c.fillText(S.award.name, 540, y); y += 92;
+    const s3 = fitText(c, S.award.desc, 980, 36, FONT_B, 700); c.font = `700 ${s3}px ${FONT_B}`; c.fillStyle = '#f2f5ff'; c.fillText(S.award.desc, 540, y);
+    // ゲーム名は、すみに小さく（左下）。右下には公開URL（まだない間は作者名）
+    c.fillStyle = '#8c98bf'; c.textAlign = 'left'; c.font = `800 30px ${FONT_D}`; c.fillText(GAME_TITLE, 48, 1304);
+    c.textAlign = 'right'; c.font = `700 24px ${FONT_B}`; c.fillText(SHARE_URL ? SHARE_URL.replace(/^https?:\/\//, '').replace(/\/$/, '') : CREDIT, 1032, 1305);
+    return cv;
+  }
+  function toBlob(cv) { return new Promise(res => { let done = false; const fin = b => { if (!done) { done = true; res(b); } };
+    try { cv.toBlob(b => fin(b), 'image/png'); } catch (e) { /* 下の方法で作る */ }
+    setTimeout(() => { if (done) return; try { const u = cv.toDataURL('image/png'), bin = atob(u.split(',')[1]), arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); fin(new Blob([arr], { type: 'image/png' })); } catch (e) { fin(null); } }, 1200); }); }
+  async function shareBlob() {
+    try { if (document.fonts && document.fonts.load) await Promise.race([Promise.all([document.fonts.load(`800 60px "Shippori Mincho B1"`, GAME_TITLE + S.award.name), document.fonts.load(`700 30px "Zen Kaku Gothic New"`, S.award.desc + S.name + CAP_NAME + HASHTAG)]), new Promise(r => setTimeout(r, 1500))]); } catch (e) { /* 字が読みこめなくても、代わりの字で作る */ }
+    return toBlob(composeShare());
+  }
+  const shareText = () => { const nm = S.name.trim(); return `${GAME_TITLE}\n` + (nm ? `「${nm}」は【${S.award.name}】になった。` : `できた星は【${S.award.name}】だった。`) + `\n${HASHTAG}`; };
+  let dlPromise = null;
+  function getDownloads() { if (!dlPromise) { try { dlPromise = (window.claude && typeof window.claude.use === 'function') ? Promise.resolve(window.claude.use('downloads')).catch(() => null) : Promise.resolve(null); } catch (e) { dlPromise = Promise.resolve(null); } } return dlPromise; }
+  async function saveBlob(blob, quiet) {       // 画像を端末に保存する。成功したら true
+    const name = 'chikyu.png';
+    try { const dl = await getDownloads(); if (dl) { await dl.save({ filename: name, data: blob }); if (!quiet) toast('画像を保存しました'); return true; } } catch (e) { if (e && e.code === 'declined') { toast('保存をやめました'); return false; } }
+    try { const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000); if (!quiet) toast('画像を保存しました'); return true; } catch (e) { toast('この環境では保存できませんでした'); return false; }
+  }
+  let sharing = false;
+  async function doSave() { if (sharing || !S.award) return; sharing = true; sfx.ui(); try { const b = await shareBlob(); if (b) await saveBlob(b); else toast('画像を作れませんでした'); } finally { sharing = false; } }
+  async function doShare() {
+    if (sharing || !S.award) return; sharing = true; sfx.ui();
+    try {
+      const b = await shareBlob(), text = shareText() + (SHARE_URL ? `\n${SHARE_URL}` : '');
+      if (b && navigator.canShare && typeof File === 'function') { const file = new File([b], 'chikyu.png', { type: 'image/png' });
+        let can = false; try { can = navigator.canShare({ files: [file] }); } catch (e) { /* 使えない */ }
+        if (can) { try { await navigator.share({ files: [file], text }); return; } catch (e) { if (e && e.name === 'AbortError') return; /* 共有メニューが開けなかった時は、下の方法に切りかえる */ } } }
+      // 共有メニューが使えない端末（パソコンなど）：画像を保存して、Xの投稿画面を開く（画像は自分で添付する）
+      const saved = b ? await saveBlob(b, true) : false, a = document.createElement('a'); a.href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText()) + (SHARE_URL ? '&url=' + encodeURIComponent(SHARE_URL) : ''); a.target = '_blank'; a.rel = 'noopener';
+      document.body.appendChild(a); a.click(); a.remove(); toast(saved ? '画像を保存しました。Xの投稿画面で、保存した画像を添付してください' : 'Xの投稿画面を開きました', 5200);
+    } finally { sharing = false; }
+  }
+
+  /* ---------- ボタンやカードを押した時 ----------
+     指やマウスを離した時に、すぐ反応する。（地図をすばやく なぞった直後は、ブラウザーが次のタップの「クリック」を出さないことがあるので、クリックだけには頼らない。
+     キーボードで押した時は、クリックで反応する。「画像を保存」「シェア」は、ブラウザーの決まりでクリックの時にしか動かせないので、そのまま） */
+  /* pad＝[上, 左右, 下]（px）を渡したボタンは「きびしい」あつかい：指がふれた点が、ボタン＋その余白の中にある時だけ反応する。
+     （スマホのブラウザーは、ボタンの少し外をタップしても「近くのボタンを押した」ことにする場合がある。取り消しのきかない「これで完成」は、地図をタップしたつもりで押されては困るので、それを受けつけない） */
+  const inPad = (el, e, pad) => { const r = el.getBoundingClientRect(), p = pad || [0, 0, 0]; return e.clientX >= r.left - p[1] && e.clientX <= r.right + p[1] && e.clientY >= r.top - p[0] && e.clientY <= r.bottom + p[2]; };
+  function onTap(el, fn, pad) {
+    let down = null, at = -1e9, downAt = -1e9;
+    el.addEventListener('pointerdown', e => { downAt = performance.now(); down = e.isPrimary && (e.pointerType !== 'mouse' || e.button === 0) && (!pad || inPad(el, e, pad)) ? { id: e.pointerId, x: e.clientX, y: e.clientY } : null; });
+    el.addEventListener('pointerup', e => { const d = down; down = null; if (!d || d.id !== e.pointerId || el.disabled) return;
+      if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 14 || !inPad(el, e, pad)) return;      // 指をずらして離した時は、押さなかったことにする
+      at = performance.now(); fn(e); });
+    el.addEventListener('pointercancel', () => { down = null; });
+    el.addEventListener('click', e => { if (performance.now() - at < 800) return; if (pad && performance.now() - downAt < 1000) return; fn(e); });      // 上でもう反応した時は、二重に動かさない。きびしいボタンは、指やマウスで押した時は上の判定だけにする（キーボードで押した時は、ここで反応する）
+  }
+  const DONE_PAD = [7, 8, 1];      // 「これで完成」の押せる余白（見た目の style と同じ数字）
+
+  /* ---------- 指・マウスの操作 ---------- */
+  const SLOP_TOUCH = 12, SLOP_MOUSE = 5;      // これより小さい動き（画面上の長さ）は「タップ」とみなす。指は少しぶれるので大きめ
+  const EDGE = 22;                            // なぞっている時は、地図のふちから これだけ外まで「地図の中」とみなす（ふちの近くで指がはみ出ても、取り消しにならないように）
+  const looseGrid = (px, py, r) => px < r.x - EDGE || px > r.x + r.w + EDGE || py < r.y - EDGE || py > r.y + r.h + EDGE ? null : { x: clamp((px - r.x) / r.w * E.W, 0, E.W - 0.01), y: clamp((py - r.y) / r.h * E.H, 0, E.H - 0.01) };
+  let activeId = null;                        // いま画面にふれている指（2本目の指は無視する）
+  const pos = e => { const r = appEl.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  stage.addEventListener('pointerdown', e => {
+    if (activeId !== null && e.pointerId !== activeId && !e.isPrimary) return;
+    const btn = e.target.closest && e.target.closest('#btnView, #btnDone');
+    if (btn && (btn !== elDone || inPad(elDone, e, DONE_PAD))) return;      // 舞台の上にのっているボタンは、ボタンにまかせる（「これで完成」の外をタップしたのに、ブラウザーがボタンあつかいにした時は、地図のタップとして受けとる）
+    audioInit(); const p = pos(e);
+    if (S.screen === 'play') { if (S.busy) return; const g = toGrid(p.x, p.y, flatRect());
+      if (!S.sel) { if (g) { setHint(MSG.first, true); sfx.no(); } return; }
+      activeId = e.pointerId; S.ptr = { x: p.x, y: p.y, down: true, inside: !!g };
+      S.stroke = g && C.byId[S.sel].draw ? { id: S.sel, pts: [{ x: g.x, y: g.y }], len: 0, full: false, armed: false, x0: p.x, y0: p.y, slop: e.pointerType === 'mouse' ? SLOP_MOUSE : SLOP_TOUCH } : null;      // なぞれるカードなら、線を描きはじめる
+      try { stage.setPointerCapture(e.pointerId); } catch (er) { /* 無視 */ } e.preventDefault(); }
+    else if (S.screen === 'finish' && !S.morph) skipFinish();
+    else if (S.screen === 'title' || (S.screen === 'result' && S.view === 'globe' && !S.morph)) { activeId = e.pointerId; S.drag = { x: p.x, y: p.y, rot: S.rot, tilt: S.tilt, moved: false }; try { stage.setPointerCapture(e.pointerId); } catch (er) { /* 無視 */ } }      // 地球儀をつかむ
+  });
+  stage.addEventListener('pointermove', e => {
+    if (activeId !== null ? e.pointerId !== activeId : e.pointerType === 'touch') return;      // 2本目の指は無視
+    if (e.pointerType === 'mouse' && e.buttons === 0 && (S.drag || (S.ptr && S.ptr.down))) dropTouch();      // 画面の外でボタンを離していた時（離した合図が届かなかった時）は、ここで打ち切る
+    const p = pos(e);
+    if (S.drag) {      // 地球儀を回す：左右は自転、上下は傾き（指を下に動かすと北が手前に、上に動かすと南が見えてくる）
+      const d = S.drag, R = globeGeom().R, tl = clamp(d.tilt - (p.y - d.y) / R, -G.TILT_MAX, G.TILT_MAX); S.rot = d.rot - (p.x - d.x) / R;
+      if (tl !== S.tilt) { S.tilt = tl; S.tiltAt = now(); }
+      if (!d.moved && Math.hypot(p.x - d.x, p.y - d.y) > 6) { d.moved = true; S.spun = true; if (elHint.textContent === MSG.spin) setHint('', false); }
+    }
+    else if (S.screen === 'play' && S.sel && !S.busy) {
+      const was = !!(S.ptr && S.ptr.inside), st = S.stroke, down = !!(S.ptr && S.ptr.down), g = st && down ? looseGrid(p.x, p.y, flatRect()) : toGrid(p.x, p.y, flatRect()); S.ptr = { x: p.x, y: p.y, down, inside: !!g };
+      if (st && S.ptr.down) {
+        if (!st.armed && Math.hypot(p.x - st.x0, p.y - st.y0) >= st.slop) st.armed = true;
+        if (st.armed && g && !st.full) { const last = st.pts[st.pts.length - 1], d = C.segLen(last, g), max = C.P[st.id].max;
+          if (d >= 1.5) { if (st.len + d >= max) { const f = (max - st.len) / d; st.pts.push({ x: last.x + (g.x - last.x) * f, y: last.y + (g.y - last.y) * f }); st.len = max; st.full = true; setHint(MSG.full, true); sfx.ui(); }      // 長さの上限まで
+            else { st.pts.push({ x: g.x, y: g.y }); st.len += d; } } }
+        if (st.len >= C.TAP && was !== !!g) setHint(g ? (st.full ? MSG.full : PICK_HINT[st.id]) : MSG.outside, true);
+      }
+    }
+  });
+  stage.addEventListener('pointerup', e => {
+    if (activeId !== null && e.pointerId !== activeId) return; activeId = null;
+    if (S.drag) { S.drag = null; return; }
+    if (S.screen !== 'play' || !S.ptr) return;
+    const p = pos(e), g = toGrid(p.x, p.y, flatRect()), st = S.stroke, down = S.ptr.down; S.stroke = null; if (e.pointerType !== 'mouse') S.ptr = null; else { S.ptr.down = false; S.ptr.inside = !!g; }
+    if (!down || !S.sel || S.busy) return;
+    if (st && st.id === S.sel && st.len >= C.TAP) {       // なぞった：地図の中（ふちの少し外までふくむ）で離せば確定、外で離せば取り消し
+      if (!looseGrid(p.x, p.y, flatRect())) { setHint(MSG.cancel, true); sfx.no(); return; }
+      playCard(S.sel, st.pts[0].x, st.pts[0].y, st.pts);
+    } else if (g) playCard(S.sel, g.x, g.y);              // タップ（ほとんど動かさずに離した）
+  });
+  stage.addEventListener('pointerleave', () => { if (S.ptr && !S.ptr.down) S.ptr = null; });
+  function dropTouch() { activeId = null; S.drag = null; S.stroke = null; if (S.ptr) S.ptr.down = false; }      // なぞっている途中の操作を打ち切る（何も起きない）
+  stage.addEventListener('pointercancel', e => { if (activeId !== null && e.pointerId !== activeId) return; dropTouch(); S.ptr = null; });
+  window.addEventListener('blur', () => { dropTouch(); S.ptr = null; });                                    // ほかのアプリに切りかえた時など
+  stage.addEventListener('contextmenu', e => e.preventDefault());
+  onTap($('btnStart'), start);
+  onTap($('btnAgain'), again);
+  onTap(elView, toggleView);
+  onTap(elDone, finishNow, DONE_PAD);
+  $('btnSave').addEventListener('click', doSave);
+  $('btnShare').addEventListener('click', doShare);
+  onTap($('btnMute'), () => { muted = !muted; try { localStorage.setItem(SAVE_MUTE, muted ? '1' : '0'); } catch (e) { /* 無視 */ } renderMute(); if (!muted) { audioInit(); sfx.ui(); } });
+  elName.addEventListener('input', () => { S.name = elName.value.slice(0, NAME_MAX); });
+  elName.addEventListener('keydown', e => { if (e.key === 'Enter') elName.blur(); });
+
+  /* ---------- メインループ ---------- */
+  let lastT = now(), lastSig = '', idleN = 0, globeTick = 0;
+  function frame() {
+    requestAnimationFrame(frame);
+    const t = now(), dt = Math.min(0.1, t - lastT); lastT = t; fit(dt);
+    if (!S.w) return;
+    if (S.cross > 0) S.cross = Math.max(0, S.cross - dt / 0.45);
+    if (S.anim) animStep(t);
+    if (S.next && t >= S.next.at) { const fn = S.next.fn; S.next = null; fn(); }
+    if (S.screen === 'finish') finStep(t);
+    // 何も動いていない間（カードを選んでいる間など）は、画面を描き直さない（電池を使わないように）
+    const globeOn = () => S.screen === 'title' || (S.screen === 'result' && S.view !== 'map');      // 地球儀を見せている画面か（結果画面で「地図で見る」にしている間は、平面の地図）
+    const moving = S.anim || S.morph || S.cross > 0 || S.shake > 0 || (S.screen !== 'play' && !(S.screen === 'result' && S.view === 'map')) || (S.fade && t - S.fade < 0.7) || (S.sel && S.ptr && !S.busy);
+    const sig = S.screen + '|' + view.width + '|' + view.height + '|' + geo.fx.toFixed(1) + '|' + geo.fy.toFixed(1) + '|' + geo.fw.toFixed(1) + '|' + mapVer + '|' + (S.sel || '') + (S.ptr ? 1 : 0) + S.view;
+    if (!moving && sig === lastSig && ++idleN < 45) return; lastSig = sig; idleN = 0;      // 止まっていても、念のため ときどきは描き直す
+    if (globeOn() && !S.morph) { if (!S.drag) S.rot += SPIN * dt; if (!S.drag && (++globeTick & 1)) return; }      // ゆっくり回る地球儀は、1コマおきに描けば十分（計算を半分にする）
+    vx.setTransform(DPR, 0, 0, DPR, 0, 0); vx.clearRect(0, 0, VW, VH);
+    if (S.morph) {
+      const m = S.morph, u = clamp((t - m.t0) / m.dur, 0, 1), k = easeIO(u), e = lerp(m.from, m.to, k);
+      if (u >= 1) { S.morph = null; if (m.done) m.done(); else if (m.to === 1) toResult(); else beginPlay(); }
+      else { drawMorph(e, m.from === 1 ? m.rot0 * (1 - k) : 0, m.from === 1 ? lerp(m.pitch, G.PITCH, E.smooth(0, 0.5, k)) : m.pitch); return; }      // ひらく時は、上下の傾きを先にいつもの向きへもどす（かたむいたまま ひらくと、形がわかりにくいため）
+    }
+    if (globeOn()) drawGlobe(t, 1);
+    else if (S.screen !== 'boot') drawFlat(t, S.fade ? clamp((t - S.fade) / 0.5, 0, 1) : 1);
+  }
+  /* 準備運動：タイトルが出ている間に、重い計算を1回ずつ空回ししておく（最初のカードや「はじめる」で引っかからないように） */
+  function warmUp() {
+    const texts = () => {       // カードや案内で使う文字を、見えない所に1回並べておく（最初にカードを配る時に、字の準備で止まらないように）
+      const d = document.createElement('div'); d.setAttribute('aria-hidden', 'true'); d.style.cssText = 'position:absolute;left:0;top:0;width:280px;height:10px;overflow:hidden;visibility:hidden;pointer-events:none;';
+      const add = (cls, txt) => { const e = document.createElement('span'); e.className = cls; e.textContent = txt; d.appendChild(e); };
+      add('card-name', C.LIST.map(c => c.name).join('')); add('card-desc', C.LIST.map(c => c.desc).join('')); add('card-tag', '場所をえらぶ世界ぜんたい2回目');
+      add('hint', allHints().join('') + 'あと回'); add('award', T.LIST.map(t => t.name).join('')); add('award-desc', T.LIST.map(t => t.desc).join('') + CAP_NAME + '大きな山砂漠星の名前（つけなくてもOK）画像を保存シェアもう1回これで完成' + LAYERS.map(l => l[1]).join('') + LIFE_NAME.map(l => l[1]).join('') + '少ない多い寒い暑い雨が世界の人口およそ億人国（ぜんぶでか国）どの国でもない土地ほぼ0人1億人より国ができるほど、住みやすい土地がない');
+      app.appendChild(d); void d.offsetWidth; setTimeout(() => d.remove(), 4000);
+    };
+    const steps = [texts, () => P.paint(S.w, loImg.data, 1, { riverFade: 0.5 }), () => E.climate(S.w), () => E.hydro(S.w), () => { const ev = C.make(S.w, 'uplift', 10, 10); ev.apply(0.5); ev.apply(0); E.climate(S.w); },
+      () => { const fr = flatRect(), gg = globeGeom(), k = (MO - 10) / Math.max(fr.w, gg.R * 2); G.morph(mo32, MO, hi32, E.W * 2, E.H * 2, 0.5, 0, fr.w * k, gg.R * k, true); }, () => P.paint(S.w, loImg.data, 1), warmTilt];
+    let i = 0; const run = () => { if (S.screen !== 'title' || i >= steps.length) return; try { steps[i++](); } catch (e) { /* 準備運動なので、失敗しても遊びには関係ない */ } setTimeout(run, 70); }; setTimeout(run, 350);
+  }
+  function boot() {
+    renderMute(); getDownloads(); requestAnimationFrame(frame);
+    setTimeout(() => { const m = /^#s(\d+)$/.exec(location.hash || ''); newWorld(m ? +m[1] : 0); setScreen('title'); $('btnStart').disabled = false; warmUp(); }, 40);
+    try { if (document.fonts && document.fonts.load) { const all = C.LIST.map(c => c.name + c.desc).join('') + T.LIST.map(x => x.desc).join('') + allHints().join('');
+      document.fonts.load('800 40px "Shippori Mincho B1"', GAME_TITLE + T.LIST.map(x => x.name).join('')).catch(() => {}); [500, 700, 900].forEach(wt => document.fonts.load(wt + ' 16px "Zen Kaku Gothic New"', all).catch(() => {})); } } catch (e) { /* 無視 */ }
+  }
+  boot();
+  return { S, E, C, P, G, T, playCard, selectCard, deal, start, again, startFinish, skipFinish, newWorld, composeShare, shareText, flatRect, globeGeom, toScreen, markList, allHints, bandCanvas: () => bandCv, toggleView, finishNow, setLayer, LAYERS, LIFE_NAME, CAP_NAME, TURNS, HAND, MAX_USE };
+})();
+window.__eg = APP;
+</script>
+</body>
+</html>
