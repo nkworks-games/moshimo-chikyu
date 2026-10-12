@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="google-adsense-account" content="ca-pub-2073267239630350">
 <style>:root{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}</style>
 <meta name="description" content="出来事カードをえらんで、1分で自分だけの地球をつくるゲーム。できた星には称号がつき、人口・気温・雨・国・くらしの地図も見られます。あなたの星は、何の星？">
 <meta name="theme-color" content="#060a17">
@@ -17,7 +18,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@800&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet">
 <style>
-/* レイアウト：上に星（地図／地球儀）の舞台、下にカード。横長の画面では左に舞台、右にカード。夜空の中に星が浮かぶ1画面のアプリ */
+/* レイアウト：上に星（地図／地球儀）の舞台、下にカード。横長の画面では左に舞台、右にカード。夜空の中に星が浮かぶ1画面のアプリ。
+   画面のいちばん下はバナー広告の場所。ゲームは、その上の「ゲームの画面」（#game）の中に並べる */
 :root {
   color-scheme: dark;
   --space: #060a17;        /* 夜空 */
@@ -31,7 +33,11 @@
   --sea: #6cc4f5;          /* 補助の色（海） */
   --display: "Shippori Mincho B1", "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif;
   --body: "Zen Kaku Gothic New", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", "Noto Sans JP", sans-serif;
+  --ad-h: 50px;            /* 広告バナーの高さ（スマホ） */
+  --ad-gap: 75px;          /* バナーとゲームの間の余白。いつも75px（下のスクリプト adLayout も75pxで固定） */
+  --u: 1vw; --v: 1vh;      /* 「ゲームの画面」の幅の1%・高さの1%。スクリプト（adLayout）が px で入れ直す。大きさは画面そのものではなく、これを基準に決める */
 }
+@media (orientation: landscape) and (min-width: 728px) and (min-height: 500px) { :root { --ad-h: 90px; } }   /* 横長の画面（パソコン・横向きのタブレット）ではバナーを90pxに */
 html { height: 100%; box-sizing: border-box; }
 body { word-break: auto-phrase; height: 100%; margin: 0; background: var(--space); color: var(--ink); font-family: var(--body); font-weight: 500; font-size: 14px; line-height: 1.5; overflow: hidden; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
 [hidden] { display: none !important; }
@@ -39,6 +45,16 @@ button, input { font: inherit; color: inherit; }
 button { cursor: pointer; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
+/* 画面の下から順に：広告バナー（#ad-zone）→ 余白（--ad-gap）→ ゲームの画面（#game）。ゲームは #game の中だけに並べるので、バナーとは重ならない */
+#game { position: fixed; left: 0; right: 0; top: env(safe-area-inset-top, 0px); bottom: calc(var(--ad-h) + env(safe-area-inset-bottom, 0px) + var(--ad-gap)); }
+#gbox { position: absolute; left: 0; top: 0; width: 100%; height: 100%; transform-origin: 0 0; }      /* ゲームの画面の背がとても低い時だけ、スクリプトが大きさを決めて縮めて映す */
+/* バナーの入れ物は、広告がまだ無くても・読み込めなくても、決まった高さのまま場所を取る（iPhoneのホームバーのぶんは、その下に足す） */
+#ad-zone { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; height: var(--ad-h); padding-bottom: env(safe-area-inset-bottom, 0px); background: #080d1f; box-shadow: 0 -1px 0 rgba(170, 190, 255, .16); touch-action:manipulation;-webkit-user-select:auto;user-select:auto }
+#ad-banner { width: 100%; height: var(--ad-h); overflow: hidden; display: flex; align-items: center; justify-content: center; max-height:var(--ad-h);contain:layout paint }
+#ad-banner ins{max-height:var(--ad-h)!important;overflow:hidden}
+#ad-banner ins.adsbygoogle[data-ad-status="unfilled"]{display:none!important}   /* 広告が来ない時は 空の四角を出さない（帯の高さは そのまま） */
+
+.g-typing #ad-zone { visibility: hidden; }      /* 星の名前を入力していて、キーボードが画面を押し縮めている間だけ（スクリプトが html に g-typing の印をつける） */
 #app { position: relative; height: 100%; box-sizing: border-box; max-width: 1180px; margin-inline: auto; padding-inline: 16px; padding-block: 6px 12px; display: flex; flex-direction: column; gap: 6px; }
 #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; pointer-events: none; }
 .top, .layout { position: relative; z-index: 1; }
@@ -57,7 +73,7 @@ button { cursor: pointer; -webkit-user-select: none; user-select: none; touch-ac
 
 .layout { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
 /* カードを選ぶ間は、舞台を地図ぴったりの高さにして、残りをカードに使う */
-[data-screen="play"] .stage, [data-screen="finish"] .stage { flex: 0 1 auto; height: calc((min(100vw, 1180px) - 32px) / 2 + 74px); }
+[data-screen="play"] .stage, [data-screen="finish"] .stage { flex: 0 1 auto; height: calc((min(calc(var(--u) * 100), 1180px) - 32px) / 2 + 74px); }
 .stage { position: relative; flex: 1 1 auto; min-height: 150px; touch-action: none; -webkit-user-select: none; user-select: none; }
 .stage-top, .stage-bottom { position: absolute; left: 0; right: 0; display: flex; justify-content: center; pointer-events: none; }
 .stage-top { top: 0; align-items: center; gap: 12px; min-height: 28px; } .stage-bottom { bottom: 0; }
@@ -82,8 +98,8 @@ button { cursor: pointer; -webkit-user-select: none; user-select: none; touch-ac
 /* ---- タイトル ---- */
 .p-title { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; padding-block: 4px 10px; }
 .title { margin: 0; font-family: var(--display); font-weight: 800; line-height: 1.12; letter-spacing: .04em; display: flex; flex-direction: column; align-items: center; }
-.title .t1 { font-size: clamp(20px, 6vw, 30px); color: var(--gold); }
-.title .t2 { font-size: clamp(34px, 11vw, 60px); text-wrap: balance; }
+.title .t1 { font-size: clamp(20px, calc(var(--u) * 6), 30px); color: var(--gold); }
+.title .t2 { font-size: clamp(34px, calc(var(--u) * 11), 60px); text-wrap: balance; }
 .lead { margin: 0; color: var(--dim); font-size: 14px; max-width: 30em; }
 .lead span { display: block; } .lead i { font-style: normal; display: inline-block; } .award-desc span { display: inline-block; }   /* 文の切れ目で改行する */
 
@@ -96,13 +112,13 @@ button { cursor: pointer; -webkit-user-select: none; user-select: none; touch-ac
 
 /* ---- カード ---- */
 .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.card { position: relative; display: flex; flex-direction: column; align-items: center; gap: clamp(4px, 1dvh, 9px); min-width: 0; min-height: clamp(148px, 30dvh, 236px); padding: clamp(10px, 2dvh, 18px) 7px clamp(9px, 1.6dvh, 14px); border-radius: 14px; border: 1.5px solid var(--line); background: var(--panel); text-align: center; transition: transform .12s, border-color .12s, background .12s, opacity .2s; animation: cardIn .34s cubic-bezier(.2, .9, .3, 1.2) backwards; }
+.card { position: relative; display: flex; flex-direction: column; align-items: center; gap: clamp(4px, calc(var(--v) * 1), 9px); min-width: 0; min-height: clamp(148px, calc(var(--v) * 30), 236px); padding: clamp(10px, calc(var(--v) * 2), 18px) 7px clamp(9px, calc(var(--v) * 1.6), 14px); border-radius: 14px; border: 1.5px solid var(--line); background: var(--panel); text-align: center; transition: transform .12s, border-color .12s, background .12s, opacity .2s; animation: cardIn .34s cubic-bezier(.2, .9, .3, 1.2) backwards; }
 .card:nth-child(2) { animation-delay: .06s; } .card:nth-child(3) { animation-delay: .12s; }
 @keyframes cardIn { from { transform: translateY(14px) scale(.96); opacity: 0; } to { transform: none; opacity: 1; } }
-.card-ico { width: clamp(42px, 8dvh, 62px); height: clamp(42px, 8dvh, 62px); border-radius: 50%; display: grid; place-items: center; background: #0a1128; color: var(--sea); flex: none; }
+.card-ico { width: clamp(42px, calc(var(--v) * 8), 62px); height: clamp(42px, calc(var(--v) * 8), 62px); border-radius: 50%; display: grid; place-items: center; background: #0a1128; color: var(--sea); flex: none; }
 .card-ico svg { width: 58%; height: 58%; }
-.card-name { font-size: clamp(15px, 2.3dvh, 18px); font-weight: 900; letter-spacing: .02em; }
-.card-desc { font-size: clamp(11.5px, 1.75dvh, 13.5px); line-height: 1.45; color: var(--dim); flex: 1; }
+.card-name { font-size: clamp(15px, calc(var(--v) * 2.3), 18px); font-weight: 900; letter-spacing: .02em; }
+.card-desc { font-size: clamp(11.5px, calc(var(--v) * 1.75), 13.5px); line-height: 1.45; color: var(--dim); flex: 1; }
 .card-tag { font-size: 10.5px; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); white-space: nowrap; }
 .card-again { position: absolute; top: -7px; right: -4px; font-size: 10.5px; font-weight: 900; line-height: 1; padding: 4px 7px; border-radius: 999px; background: var(--gold); color: var(--gold-ink); letter-spacing: .02em; }
 .card[aria-pressed="true"] { border-color: var(--gold); background: var(--panel-hi); transform: translateY(-4px); }
@@ -113,7 +129,7 @@ button { cursor: pointer; -webkit-user-select: none; user-select: none; touch-ac
 
 /* ---- 結果 ---- */
 .p-result { display: flex; flex-direction: column; gap: 8px; }
-[data-screen="finish"] .p-result { min-height: clamp(148px, 30dvh, 236px); justify-content: center; }   /* しるしと称号を出す間は、カードがあった分の高さを空けておく（地図が動かないように） */
+[data-screen="finish"] .p-result { min-height: clamp(148px, calc(var(--v) * 30), 236px); justify-content: center; }   /* しるしと称号を出す間は、カードがあった分の高さを空けておく（地図が動かないように） */
 .ghost { visibility: hidden; pointer-events: none; }                                                     /* 場所だけ取っておく（あとで出てくる部品） */
 .legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; font-size: 12px; color: var(--dim); min-height: 20px; }
 .legend li { display: flex; align-items: center; gap: 5px; animation: hintPop .3s ease-out; }
@@ -122,7 +138,7 @@ button { cursor: pointer; -webkit-user-select: none; user-select: none; touch-ac
 .legend b { color: var(--ink); font-weight: 900; }
 .legend .sw { width: 11px; height: 11px; border-radius: 3px; flex: none; box-sizing: border-box; border: 1px solid rgba(255, 255, 255, .28); }
 .legend .sws { display: inline-flex; gap: 2px; }
-.legend .bar { width: clamp(64px, 20vw, 120px); height: 9px; border-radius: 999px; flex: none; border: 1px solid rgba(255, 255, 255, .18); box-sizing: border-box; }
+.legend .bar { width: clamp(64px, calc(var(--u) * 20), 120px); height: 9px; border-radius: 999px; flex: none; border: 1px solid rgba(255, 255, 255, .18); box-sizing: border-box; }
 /* 地図の種類（地形・人口・気温・雨・国・くらし） */
 .layers { display: flex; gap: 4px; }
 .layer-btn { flex: 3.2 1 0; min-width: 0; min-height: 34px; padding: 0 1px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); font-size: 12.5px; font-weight: 700; color: var(--dim); white-space: nowrap; transition: background .15s, border-color .15s, color .15s; }
@@ -131,7 +147,7 @@ button { cursor: pointer; -webkit-user-select: none; user-select: none; touch-ac
 .layer-btn:active { transform: translateY(1px); }
 .award-box { text-align: center; }
 .kicker { margin: 0; font-size: 12px; font-weight: 700; color: var(--dim); letter-spacing: .12em; }
-.award { margin: 0; font-family: var(--display); font-weight: 800; font-size: clamp(30px, 9.5vw, 46px); line-height: 1.2; color: var(--gold); letter-spacing: .04em; text-wrap: balance; }
+.award { margin: 0; font-family: var(--display); font-weight: 800; font-size: clamp(30px, calc(var(--u) * 9.5), 46px); line-height: 1.2; color: var(--gold); letter-spacing: .04em; text-wrap: balance; }
 .award-desc { margin: 2px 0 0; font-size: 14px; text-wrap: balance; }
 .reveal { animation: awardIn .7s cubic-bezier(.2, .9, .25, 1.15) backwards; }
 @keyframes awardIn { from { transform: scale(.7); opacity: 0; letter-spacing: .3em; } to { transform: none; opacity: 1; } }
@@ -148,55 +164,54 @@ button { cursor: pointer; -webkit-user-select: none; user-select: none; touch-ac
 .view-btn svg { width: 17px; height: 17px; flex: none; color: var(--gold); }
 .view-btn .l { display: none; }
 [data-screen="result"] .stage-bottom { bottom: auto; top: 0; }      /* 結果画面の案内（「回せます」）は、舞台の上のはしに出す（右下のボタンに重ならないように） */
-@media (min-width: 560px) { .view-btn .s { display: none; } .view-btn .l { display: inline; } }
+:where(.g-w560) .view-btn .s { display: none; } :where(.g-w560) .view-btn .l { display: inline; }
 
-.toast { pointer-events: none; position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); max-width: min(90vw, 420px); padding: 9px 16px; border-radius: 12px; background: #f2f5ff; color: #10162c; font-weight: 700; font-size: 13px; text-align: center; z-index: 5; box-shadow: 0 6px 24px rgba(0, 0, 0, .45); animation: hintPop .25s ease-out; }
+.toast { pointer-events: none; position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); max-width: min(calc(var(--u) * 90), 420px); padding: 9px 16px; border-radius: 12px; background: #f2f5ff; color: #10162c; font-weight: 700; font-size: 13px; text-align: center; z-index: 5; box-shadow: 0 6px 24px rgba(0, 0, 0, .45); animation: hintPop .25s ease-out; }
 
-/* ---- 横長の画面（パソコンなど）：左に大きな地図、右にカード ---- */
-@media (min-aspect-ratio: 5/4) {
-  #app { max-width: 1720px; padding-block: 10px 16px; --side: clamp(240px, 30vw, 440px); }
-  .layout { flex-direction: row; align-items: stretch; gap: 22px; }
-  /* 地図ぴったりの高さにして上下の中央へ（「あと◯回」と案内が地図のすぐ上下に来る） */
-  [data-screen="unwrap"] .stage, [data-screen="play"] .stage, [data-screen="finish"] .stage { flex: 1 1 auto; align-self: center; height: calc((min(100vw, 1720px) - 54px - var(--side)) / 2 + 74px); max-height: 100%; }
-  .panel { flex: 0 0 var(--side); align-self: center; }
-  .cards { grid-template-columns: 1fr; gap: clamp(6px, 1.4dvh, 12px); }
-  .card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "ico name tag" "ico desc desc"; align-items: center; text-align: left; min-height: 0; padding: clamp(7px, 1.7dvh, 16px) 14px; column-gap: 12px; row-gap: 2px; }
-  .card-ico { grid-area: ico; width: clamp(34px, 7.4dvh, 64px); height: clamp(34px, 7.4dvh, 64px); }
-  .card-name { grid-area: name; font-size: clamp(15px, 2.6dvh, 22px); }
-  .card-desc { grid-area: desc; font-size: clamp(11.5px, 1.9dvh, 15.5px); }
-  .card-tag { grid-area: tag; }
-  .card[aria-pressed="true"] { transform: translateX(-6px); }
-  .p-title { align-items: flex-start; text-align: left; gap: clamp(8px, 2.2dvh, 18px); }
-  .title { align-items: flex-start; } .title .t1 { font-size: clamp(18px, 2.3vw, 34px); } .title .t2 { font-size: clamp(34px, 4.6vw, 66px); white-space: nowrap; }
-  .lead { font-size: clamp(13px, 1.25vw, 17px); }
-  .btn.big { min-width: min(220px, 100%); }
-  [data-screen="finish"] .p-result { min-height: 0; }
-  .award-box, .legend { text-align: left; justify-content: flex-start; }
-  .award { font-size: clamp(30px, 4.4vw, 62px); white-space: nowrap; } .award-desc { font-size: clamp(13px, 1.25vw, 17px); }
-  .legend { font-size: clamp(12px, 1.1vw, 14px); }
-  .hint { font-size: clamp(13px, 1.2vw, 16px); } .turns { font-size: clamp(13px, 1.2vw, 16px); } .done-btn { font-size: clamp(12.5px, 1.05vw, 14px); }
-}
-/* 横長で背が低い画面（スマホを横向きにした時など） */
-@media (min-aspect-ratio: 5/4) and (max-height: 480px) {
-  #app { padding-block: 4px 8px; gap: 2px; } .top { min-height: 32px; } .icon-btn { width: 32px; height: 32px; }
-  .btn { min-height: 38px; padding-block: 4px; } .btn.big { min-height: 46px; font-size: 17px; } .name-row input { min-height: 36px; padding-block: 3px; }
-  .hint { font-size: 12px; padding: 4px 10px; }
-  .card-again { right: auto; left: -4px; top: -6px; }      /* せまいので、右上の「場所をえらぶ」に重ならないよう左上へ */
-  .p-result { gap: 4px; } .kicker { display: none; } .award-desc { margin-top: 0; line-height: 1.35; } .name-row label { font-size: 11px; }
-  .actions { grid-template-columns: 1fr 1fr 1.15fr; gap: 6px; } .actions .primary { grid-column: auto; } .actions .btn { padding-inline: 4px; font-size: 14px; } .actions .l { display: none; }      /* ボタン3つを1列に（「画像を保存」は短く「保存」） */
-  .layer-btn { min-height: 30px; } .legend.tall { min-height: 36px; }
-}
-/* 縦長で背が低い画面 */
-@media (max-height: 560px) and (max-aspect-ratio: 1249/1000) { .card { min-height: 126px; } .card-ico { width: 36px; height: 36px; } }
-/* 縦長で、あまり背が高くない画面（小さめのスマホ）：結果画面のボタン3つを1列にして、そのぶん星を大きく見せる */
-@media (max-height: 700px) and (max-aspect-ratio: 1249/1000) { .actions { grid-template-columns: 1fr 1fr 1.15fr; gap: 6px; } .actions .primary { grid-column: auto; } .actions .btn { padding-inline: 4px; } }
+/* ---- ここから下は「ゲームの画面」の形に合わせた切りかえ。画面の形は、下のスクリプト（adLayout）が調べて、html に g-wide などの印をつける ---- */
+/* ---- 横長（g-wide：横÷縦が1.25以上。パソコンなど）：左に大きな地図、右にカード ---- */
+:where(.g-wide) #app { max-width: 1720px; padding-block: 10px 16px; --side: clamp(240px, calc(var(--u) * 30), 440px); }
+:where(.g-wide) .layout { flex-direction: row; align-items: stretch; gap: 22px; }
+/* 地図ぴったりの高さにして上下の中央へ（「あと◯回」と案内が地図のすぐ上下に来る） */
+:where(.g-wide) [data-screen="unwrap"] .stage, :where(.g-wide) [data-screen="play"] .stage, :where(.g-wide) [data-screen="finish"] .stage { flex: 1 1 auto; align-self: center; height: calc((min(calc(var(--u) * 100), 1720px) - 54px - var(--side)) / 2 + 74px); max-height: 100%; }
+:where(.g-wide) .panel { flex: 0 0 var(--side); align-self: center; }
+:where(.g-wide) .cards { grid-template-columns: 1fr; gap: clamp(6px, calc(var(--v) * 1.4), 12px); }
+:where(.g-wide) .card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "ico name tag" "ico desc desc"; align-items: center; text-align: left; min-height: 0; padding: clamp(7px, calc(var(--v) * 1.7), 16px) 14px; column-gap: 12px; row-gap: 2px; }
+:where(.g-wide) .card-ico { grid-area: ico; width: clamp(34px, calc(var(--v) * 7.4), 64px); height: clamp(34px, calc(var(--v) * 7.4), 64px); }
+:where(.g-wide) .card-name { grid-area: name; font-size: clamp(15px, calc(var(--v) * 2.6), 22px); }
+:where(.g-wide) .card-desc { grid-area: desc; font-size: clamp(11.5px, calc(var(--v) * 1.9), 15.5px); }
+:where(.g-wide) .card-tag { grid-area: tag; }
+:where(.g-wide) .card[aria-pressed="true"] { transform: translateX(-6px); }
+:where(.g-wide) .p-title { align-items: flex-start; text-align: left; gap: clamp(8px, calc(var(--v) * 2.2), 18px); }
+:where(.g-wide) .title { align-items: flex-start; } :where(.g-wide) .title .t1 { font-size: clamp(18px, calc(var(--u) * 2.3), 34px); } :where(.g-wide) .title .t2 { font-size: clamp(34px, calc(var(--u) * 4.6), 66px); white-space: nowrap; }
+:where(.g-wide) .lead { font-size: clamp(13px, calc(var(--u) * 1.25), 17px); }
+:where(.g-wide) .btn.big { min-width: min(220px, 100%); }
+:where(.g-wide) [data-screen="finish"] .p-result { min-height: 0; }
+:where(.g-wide) .award-box, :where(.g-wide) .legend { text-align: left; justify-content: flex-start; }
+:where(.g-wide) .award { font-size: clamp(30px, calc(var(--u) * 4.4), 62px); white-space: nowrap; } :where(.g-wide) .award-desc { font-size: clamp(13px, calc(var(--u) * 1.25), 17px); }
+:where(.g-wide) .legend { font-size: clamp(12px, calc(var(--u) * 1.1), 14px); }
+:where(.g-wide) .hint { font-size: clamp(13px, calc(var(--u) * 1.2), 16px); } :where(.g-wide) .turns { font-size: clamp(13px, calc(var(--u) * 1.2), 16px); } :where(.g-wide) .done-btn { font-size: clamp(12.5px, calc(var(--u) * 1.05), 14px); }
+/* 横長で背が低い（g-low：高さ480px以下。スマホを横向きにした時など） */
+:where(.g-low) #app { padding-block: 4px 8px; gap: 2px; } :where(.g-low) .top { min-height: 32px; } :where(.g-low) .icon-btn { width: 32px; height: 32px; }
+:where(.g-low) .btn { min-height: 38px; padding-block: 4px; } :where(.g-low) .btn.big { min-height: 46px; font-size: 17px; } :where(.g-low) .name-row input { min-height: 36px; padding-block: 3px; }
+:where(.g-low) .hint { font-size: 12px; padding: 4px 10px; }
+:where(.g-low) .card-again { right: auto; left: -4px; top: -6px; }      /* せまいので、右上の「場所をえらぶ」に重ならないよう左上へ */
+:where(.g-low) .p-result { gap: 4px; } :where(.g-low) .kicker { display: none; } :where(.g-low) .award-desc { margin-top: 0; line-height: 1.35; } :where(.g-low) .name-row label { font-size: 11px; }
+:where(.g-low) .actions { grid-template-columns: 1fr 1fr 1.15fr; gap: 6px; } :where(.g-low) .actions .primary { grid-column: auto; } :where(.g-low) .actions .btn { padding-inline: 4px; font-size: 14px; } :where(.g-low) .actions .l { display: none; }      /* ボタン3つを1列に（「画像を保存」は短く「保存」） */
+:where(.g-low) .layer-btn { min-height: 30px; } :where(.g-low) .legend.tall { min-height: 36px; }
+/* 縦長で背が低い（g-s560：高さ560px以下） */
+:where(.g-s560) .card { min-height: 126px; } :where(.g-s560) .card-ico { width: 36px; height: 36px; }
+/* 縦長で、あまり背が高くない（g-s700：高さ700px以下。小さめのスマホ）：結果画面のボタン3つを1列にして、そのぶん星を大きく見せる */
+:where(.g-s700) .actions { grid-template-columns: 1fr 1fr 1.15fr; gap: 6px; } :where(.g-s700) .actions .primary { grid-column: auto; } :where(.g-s700) .actions .btn { padding-inline: 4px; }
 @media (prefers-reduced-motion: reduce) { .card, .hint.pop, .legend li, .reveal, .fade-in, .toast, .view-btn { animation: none; } .layer-btn, .done-btn { transition: none; } }
 </style>
-<!-- nkw-ikkaku --><style>.nkw-ikk{display:inline-block;box-sizing:border-box;max-width:92vw;padding:5px 14px;border-radius:999px;background:rgba(255,255,255,.92);border:1px solid rgba(60,90,120,.35);color:#3c5a78;font:500 12.5px/1.4 "Hiragino Sans","Noto Sans JP",system-ui,sans-serif;text-decoration:none;white-space:nowrap;letter-spacing:.02em}#pResult .nkw-ikk{display:block;width:max-content;margin:12px auto 0}#actions[hidden]+.nkw-ikk{display:none}</style>
+<!-- nkw-ikkaku --><style>.nkw-ikk{display:inline-block;box-sizing:border-box;max-width:92vw;padding:5px 14px;border-radius:999px;background:rgba(255,255,255,.92);border:1px solid rgba(60,90,120,.35);color:#3c5a78;font:500 12.5px/1.4 "Hiragino Sans","Noto Sans JP",system-ui,sans-serif;text-decoration:none;white-space:nowrap;letter-spacing:.02em}#pResult .nkw-ikk{display:block;width:max-content;margin:12px auto 0}#actions[hidden]+.nkw-ikk{display:none}:where(.g-low) #pResult .nkw-ikk{position:absolute;top:-32px;left:50%;transform:translateX(-50%);margin:0;padding-block:4px;z-index:2}</style>
 </head>
 <body>
+<div class="sky" aria-hidden="true"></div>
+<!-- ▼ゲームの画面（広告バナーと、その上の余白をのぞいた残り全部） -->
+<div id="game"><div id="gbox">
 <div id="app" data-screen="title">
-  <div class="sky" aria-hidden="true"></div>
   <canvas id="view" role="img" aria-label="星の地図"></canvas>
   <header class="top">
     <div class="brand">もしもの地球</div>
@@ -239,6 +254,26 @@ button { cursor: pointer; -webkit-user-select: none; user-select: none; touch-ac
     </aside>
   </main>
   <div class="toast" id="toast" role="status" hidden></div>
+</div>
+</div></div>
+<!-- ▼広告バナーの場所（画面のいちばん下の帯）
+     ・帯の高さ：スマホは50px、横長の画面（パソコンなど）は90px。ゲームとの間は いつも75pxあけてあります
+     ・広告が出ない時も、この帯の高さは そのまま残ります（ゲームの位置は ずれません）
+     ・ゲームの操作は、この帯の上では反応しません -->
+<div id="ad-zone">
+  <div id="ad-banner">
+    <!-- ↓↓↓ AdSense の広告ユニットのコード（全ゲーム共通「ゲーム用バナー」・固定サイズ 320×50）↓↓↓ -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2073267239630350"
+         crossorigin="anonymous"></script>
+    <ins class="adsbygoogle"
+         style="display:inline-block;width:320px;height:50px"
+         data-ad-client="ca-pub-2073267239630350"
+         data-ad-slot="6261635446"></ins>
+    <script>
+         (adsbygoogle = window.adsbygoogle || []).push({});
+    </script>
+    <!-- ↑↑↑ ここまで ↑↑↑ -->
+  </div>
 </div>
 <script>
 'use strict';
@@ -1356,10 +1391,44 @@ const APP = (() => {
   /* 絵は画面いっぱいの1枚（#view）に描く。地図や地球儀を描く場所は「舞台」（#stage）の位置から決め、
      画面の並びが変わった時（カード→結果など）は、すっと追いかけて動く */
   let VW = 1, VH = 1, DPR = 1;
+  /* バナー広告の場所：画面のいちばん下に広告の入れ物（#ad-zone）、その上に余白、さらに上の残り全部が「ゲームの画面」（#game）。
+     ゲームは「ゲームの画面」を1枚のスクリーンとみなして並べる（--u＝その幅の1%、--v＝その高さの1%。横長・背が低いなどの印は html の class）。
+     余白は いつも75px（gapMin＝gapMax＝75）。残りの高さで ゲームを いちばん大きく出す。
+     ゲームの画面の背がとても低い時（縦長で AD.minTall より低い・横長で AD.minWide より低い）は、その高さで並べたものを、そのまま小さく映す（K＝縮小率。ふだんは1）。
+     画面を回した時・ウィンドウの大きさを変えた時も、毎コマここで計算し直すので、ゲームとバナーが重なることはない */
+  const AD = { gapMin: 75, gapMax: 75, needH: 640, needW: 360, minTall: 568, minWide: 320 };
+  const elGame = $('game'), elBox = $('gbox'), elType = $('planetName'), rootEl = document.documentElement;
+  let K = 1, AREA_B = 1e9, adSig = '', curGap = parseFloat(getComputedStyle(rootEl).getPropertyValue('--ad-gap')) || 0;      // AREA_B＝ゲームの画面の下のはし（これより下は、余白と広告）。curGap＝いま取っている余白
+  let held = null, typeUntil = 0, byTouch = false;      // held＝いまの並び（下の「入力中」で使う）。byTouch＝最後に画面にふれたのが指か
+  window.addEventListener('pointerdown', e => { byTouch = e.pointerType === 'touch'; }, true);
+  elType.addEventListener('blur', () => { typeUntil = now() + 0.7; });      // 入力を終えてからキーボードが引っこむまで、少し間がある
+  function adLayout() {
+    const gr = elGame.getBoundingClientRect(), w = Math.max(1, gr.width), free = gr.height + curGap, st = rootEl.style, cl = rootEl.classList, bs = elBox.style;      // free＝バナーより上に空いている高さ（余白を取る前の高さ）
+    /* 星の名前を指で入力している間に、画面の高さが急に大きく減った時＝キーボードが画面そのものを押し縮める環境（一部のアプリ内ブラウザーなど）。
+       ここで並べ直すと、ゲーム全体が豆つぶのように小さくなってしまうので、並びは変えずに保つ。入力らんがキーボードに隠れる時は、ゲームの画面ごと上にずらす。
+       バナーは、その間だけ隠す（入力らんのすぐそばに広告が来て、まちがって押すことがないように）。入力が終わってキーボードが引っこむと、元にもどる */
+    if (held && byTouch && (document.activeElement === elType || now() < typeUntil) && Math.abs(w - held.w) < 1 && free < held.free - 60) {
+      const ir = elType.getBoundingClientRect(), s0 = held.keep ? held.shift : 0, s = Math.max(0, Math.min(ir.bottom + s0 + 12 - window.innerHeight, ir.top + s0 - gr.top - 8));
+      if (!held.keep || s !== held.shift) { held.keep = true; held.shift = s; bs.width = held.vw + 'px'; bs.height = held.vh + 'px'; bs.transform = 'translateY(' + -s + 'px) scale(' + held.k + ')'; cl.add('g-typing'); adSig = ''; }
+      AREA_B = gr.top + held.h - s; return;
+    }
+    /* 余白は、きりのいい長さ（1px きざみ）に丸める。
+       幅が360より せまい画面では、ゲームに必要な高さが 627.555…px のような半端な数になる。半端なままの余白を使うと、ブラウザーは長さを 1/64px きざみでしか持てないため、
+       「測る → 余白を決める → 測る…」が毎コマ ほんの少しずつずれて、いつまでも落ち着かない（見た目は変わらないが、毎コマ画面を組み直してしまい、電池をむだに使う）。丸めておけば、1回で決まって動かない */
+    const gap = Math.round(clamp(free - AD.needH * Math.min(1, w / AD.needW), AD.gapMin, AD.gapMax)), h = Math.max(1, free - gap);
+    const wide = w * 4 >= h * 5, tall = w * 1000 <= h * 1249, hmin = wide ? AD.minWide : AD.minTall, k = h < hmin ? h / hmin : 1, vw = w / k, vh = k < 1 ? hmin : h;      // vw×vh＝ゲームが並べる時の画面の大きさ
+    AREA_B = gr.top + h; K = k; AD.vw = vw; AD.vh = vh; AD.gap = gap; held = { w, free, h, k, vw, vh, keep: false, shift: 0 };
+    const sig = gap + '|' + k + '|' + vw + '|' + vh; if (sig === adSig) return; adSig = sig;
+    st.setProperty('--ad-gap', gap + 'px'); curGap = gap; st.setProperty('--u', vw / 100 + 'px'); st.setProperty('--v', vh / 100 + 'px');
+    bs.width = k < 1 ? vw + 'px' : ''; bs.height = k < 1 ? vh + 'px' : ''; bs.transform = k < 1 ? 'scale(' + k + ')' : ''; cl.remove('g-typing');
+    cl.toggle('g-wide', wide); cl.toggle('g-low', wide && vh <= 480); cl.toggle('g-s560', tall && vh <= 560); cl.toggle('g-s700', tall && vh <= 700); cl.toggle('g-w560', vw >= 560);
+  }
+  const rectOf = el => { const r = el.getBoundingClientRect(); return K === 1 ? r : { left: r.left / K, top: r.top / K, width: r.width / K, height: r.height / K }; };      // 部品の場所と大きさ（縮めて映している時は、縮める前の長さに直す）
   const appEl = $('app'), elView = $('btnView'), geo = { fx: 0, fy: 0, fw: 100, gx: 0, gy: 0, gR: 50, ready: false }, vb = { x: 0, y: 0, ready: false };
   function fit(dt) {
-    const ar = appEl.getBoundingClientRect(), sr = stage.getBoundingClientRect(); VW = Math.max(1, ar.width); VH = Math.max(1, ar.height);
-    DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(4e6 / (VW * VH))));          // 絵の細かさ：画面の2倍まで（とても広い画面では、重くならないように少し下げる）
+    adLayout();
+    const ar = rectOf(appEl), sr = rectOf(stage); VW = Math.max(1, ar.width); VH = Math.max(1, ar.height);
+    DPR = K * Math.max(1, Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(4e6 / (VW * VH * K * K))));          // 絵の細かさ：画面の2倍まで（とても広い画面では、重くならないように少し下げる）
     const w = Math.round(VW * DPR), h = Math.round(VH * DPR); if (view.width !== w || view.height !== h) { view.width = w; view.height = h; }
     const hh = elHint.hidden ? 0 : elHint.offsetHeight, sx = sr.left - ar.left, sy = sr.top - ar.top, top = 30, bot = Math.max(40, hh + 10), ah = Math.max(60, sr.height - top - bot), fw = Math.min(sr.width, ah * 2);
     /* 結果画面の切りかえボタン：地球儀の右下のすぐそばに置く（地球儀は丸いので、ななめ下は空いている）。地図で見ている時は、地図の右下。
@@ -1795,7 +1864,7 @@ const APP = (() => {
      キーボードで押した時は、クリックで反応する。「画像を保存」「シェア」は、ブラウザーの決まりでクリックの時にしか動かせないので、そのまま） */
   /* pad＝[上, 左右, 下]（px）を渡したボタンは「きびしい」あつかい：指がふれた点が、ボタン＋その余白の中にある時だけ反応する。
      （スマホのブラウザーは、ボタンの少し外をタップしても「近くのボタンを押した」ことにする場合がある。取り消しのきかない「これで完成」は、地図をタップしたつもりで押されては困るので、それを受けつけない） */
-  const inPad = (el, e, pad) => { const r = el.getBoundingClientRect(), p = pad || [0, 0, 0]; return e.clientX >= r.left - p[1] && e.clientX <= r.right + p[1] && e.clientY >= r.top - p[0] && e.clientY <= r.bottom + p[2]; };
+  const inPad = (el, e, pad) => { const r = el.getBoundingClientRect(), p = pad || [0, 0, 0]; return e.clientX >= r.left - p[1] * K && e.clientX <= r.right + p[1] * K && e.clientY >= r.top - p[0] * K && e.clientY <= r.bottom + p[2] * K; };
   function onTap(el, fn, pad) {
     let down = null, at = -1e9, downAt = -1e9;
     el.addEventListener('pointerdown', e => { downAt = performance.now(); down = e.isPrimary && (e.pointerType !== 'mouse' || e.button === 0) && (!pad || inPad(el, e, pad)) ? { id: e.pointerId, x: e.clientX, y: e.clientY } : null; });
@@ -1810,9 +1879,10 @@ const APP = (() => {
   /* ---------- 指・マウスの操作 ---------- */
   const SLOP_TOUCH = 12, SLOP_MOUSE = 5;      // これより小さい動き（画面上の長さ）は「タップ」とみなす。指は少しぶれるので大きめ
   const EDGE = 22;                            // なぞっている時は、地図のふちから これだけ外まで「地図の中」とみなす（ふちの近くで指がはみ出ても、取り消しにならないように）
-  const looseGrid = (px, py, r) => px < r.x - EDGE || px > r.x + r.w + EDGE || py < r.y - EDGE || py > r.y + r.h + EDGE ? null : { x: clamp((px - r.x) / r.w * E.W, 0, E.W - 0.01), y: clamp((py - r.y) / r.h * E.H, 0, E.H - 0.01) };
+  const looseGrid = (px, py, r) => { const ed = EDGE / K; return px < r.x - ed || px > r.x + r.w + ed || py < r.y - ed || py > r.y + r.h + ed ? null : { x: clamp((px - r.x) / r.w * E.W, 0, E.W - 0.01), y: clamp((py - r.y) / r.h * E.H, 0, E.H - 0.01) }; };
   let activeId = null;                        // いま画面にふれている指（2本目の指は無視する）
-  const pos = e => { const r = appEl.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  const pos = e => { const r = appEl.getBoundingClientRect(); return { x: (e.clientX - r.left) / K, y: (e.clientY - r.top) / K }; };      // 指・マウスの場所（ゲームの画面の左上から。縮めて映している時は、縮める前の長さに直す）
+  const inGame = e => e.clientY <= AREA_B;      // 指・マウスが「ゲームの画面」の中にあるか（下の余白や広告バナーの上に出ていないか）
   stage.addEventListener('pointerdown', e => {
     if (activeId !== null && e.pointerId !== activeId && !e.isPrimary) return;
     const btn = e.target.closest && e.target.closest('#btnView, #btnDone');
@@ -1821,7 +1891,7 @@ const APP = (() => {
     if (S.screen === 'play') { if (S.busy) return; const g = toGrid(p.x, p.y, flatRect());
       if (!S.sel) { if (g) { setHint(MSG.first, true); sfx.no(); } return; }
       activeId = e.pointerId; S.ptr = { x: p.x, y: p.y, down: true, inside: !!g };
-      S.stroke = g && C.byId[S.sel].draw ? { id: S.sel, pts: [{ x: g.x, y: g.y }], len: 0, full: false, armed: false, x0: p.x, y0: p.y, slop: e.pointerType === 'mouse' ? SLOP_MOUSE : SLOP_TOUCH } : null;      // なぞれるカードなら、線を描きはじめる
+      S.stroke = g && C.byId[S.sel].draw ? { id: S.sel, pts: [{ x: g.x, y: g.y }], len: 0, full: false, armed: false, x0: p.x, y0: p.y, slop: (e.pointerType === 'mouse' ? SLOP_MOUSE : SLOP_TOUCH) / K } : null;      // なぞれるカードなら、線を描きはじめる
       try { stage.setPointerCapture(e.pointerId); } catch (er) { /* 無視 */ } e.preventDefault(); }
     else if (S.screen === 'finish' && !S.morph) skipFinish();
     else if (S.screen === 'title' || (S.screen === 'result' && S.view === 'globe' && !S.morph)) { activeId = e.pointerId; S.drag = { x: p.x, y: p.y, rot: S.rot, tilt: S.tilt, moved: false }; try { stage.setPointerCapture(e.pointerId); } catch (er) { /* 無視 */ } }      // 地球儀をつかむ
@@ -1830,10 +1900,11 @@ const APP = (() => {
     if (activeId !== null ? e.pointerId !== activeId : e.pointerType === 'touch') return;      // 2本目の指は無視
     if (e.pointerType === 'mouse' && e.buttons === 0 && (S.drag || (S.ptr && S.ptr.down))) dropTouch();      // 画面の外でボタンを離していた時（離した合図が届かなかった時）は、ここで打ち切る
     const p = pos(e);
+    if (S.drag && !inGame(e)) return;      // 地球儀を回している指が、下の余白や広告バナーの上に出ている間は、動きを拾わない（ゲームの画面にもどると、また回せる）
     if (S.drag) {      // 地球儀を回す：左右は自転、上下は傾き（指を下に動かすと北が手前に、上に動かすと南が見えてくる）
       const d = S.drag, R = globeGeom().R, tl = clamp(d.tilt - (p.y - d.y) / R, -G.TILT_MAX, G.TILT_MAX); S.rot = d.rot - (p.x - d.x) / R;
       if (tl !== S.tilt) { S.tilt = tl; S.tiltAt = now(); }
-      if (!d.moved && Math.hypot(p.x - d.x, p.y - d.y) > 6) { d.moved = true; S.spun = true; if (elHint.textContent === MSG.spin) setHint('', false); }
+      if (!d.moved && Math.hypot(p.x - d.x, p.y - d.y) > 6 / K) { d.moved = true; S.spun = true; if (elHint.textContent === MSG.spin) setHint('', false); }
     }
     else if (S.screen === 'play' && S.sel && !S.busy) {
       const was = !!(S.ptr && S.ptr.inside), st = S.stroke, down = !!(S.ptr && S.ptr.down), g = st && down ? looseGrid(p.x, p.y, flatRect()) : toGrid(p.x, p.y, flatRect()); S.ptr = { x: p.x, y: p.y, down, inside: !!g };
@@ -1911,13 +1982,13 @@ const APP = (() => {
     let i = 0; const run = () => { if (S.screen !== 'title' || i >= steps.length) return; try { steps[i++](); } catch (e) { /* 準備運動なので、失敗しても遊びには関係ない */ } setTimeout(run, 70); }; setTimeout(run, 350);
   }
   function boot() {
-    renderMute(); getDownloads(); requestAnimationFrame(frame);
+    adLayout(); renderMute(); getDownloads(); requestAnimationFrame(frame);
     setTimeout(() => { const m = /^#s(\d+)$/.exec(location.hash || ''); newWorld(m ? +m[1] : 0); setScreen('title'); $('btnStart').disabled = false; warmUp(); }, 40);
     try { if (document.fonts && document.fonts.load) { const all = C.LIST.map(c => c.name + c.desc).join('') + T.LIST.map(x => x.desc).join('') + allHints().join('');
       document.fonts.load('800 40px "Shippori Mincho B1"', GAME_TITLE + T.LIST.map(x => x.name).join('')).catch(() => {}); [500, 700, 900].forEach(wt => document.fonts.load(wt + ' 16px "Zen Kaku Gothic New"', all).catch(() => {})); } } catch (e) { /* 無視 */ }
   }
   boot();
-  return { S, E, C, P, G, T, playCard, selectCard, deal, start, again, startFinish, skipFinish, newWorld, composeShare, shareText, flatRect, globeGeom, toScreen, markList, allHints, bandCanvas: () => bandCv, toggleView, finishNow, setLayer, LAYERS, LIFE_NAME, CAP_NAME, TURNS, HAND, MAX_USE };
+  return { S, E, C, P, G, T, playCard, selectCard, deal, start, again, startFinish, skipFinish, newWorld, composeShare, shareText, flatRect, globeGeom, toScreen, markList, allHints, bandCanvas: () => bandCv, toggleView, finishNow, setLayer, LAYERS, LIFE_NAME, CAP_NAME, TURNS, HAND, MAX_USE, adInfo: () => ({ k: K, bottom: AREA_B, vw: AD.vw, vh: AD.vh, gap: AD.gap, dpr: DPR, keep: !!(held && held.keep), shift: held ? held.shift : 0 }) };
 })();
 window.__eg = APP;
 </script>
